@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bar Tabacchi">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f172a">
+<title>BAR TABACCHI V16</title>
+<link rel="manifest" href="./manifest.json?v=v16">
+<link rel="icon" href="./icons/icon.svg?v=v16" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+const APP_VERSION='v16';
+try{
+  if(localStorage.getItem('bt_ver')!==APP_VERSION){
+    if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
+    if('caches' in window){caches.keys().then(k=>k.forEach(c=>caches.delete(c)));}
+    localStorage.setItem('bt_ver',APP_VERSION);
+  }
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js?v='+APP_VERSION).catch(()=>{});});
+  }
+}catch(e){}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{font-family:Inter,sans-serif;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;width:100%;overflow-x:hidden;background:#f1f5f9;touch-action:manipulation}
+body{padding-top:env(safe-area-inset-top);padding-bottom:110px;font-size:18px}
+button{min-height:58px;touch-action:manipulation;transition:.15s}
+button:active{transform:scale(.97)}
+input,select,textarea{min-height:58px;font-size:18px}
+.key{background:#f1f5f9;border-radius:12px;padding:14px 2px;font-weight:900;font-size:16px;border:1px solid #e2e8f0;min-height:0}
+.key:active{background:#0f172a;color:white}
+.chip{min-height:0}
+</style>
+</head>
+<body>
+<header class="sticky top-0 z-50 bg-white border-b shadow-sm">
+  <div class="bg-slate-900 px-4 py-3 flex justify-between items-center" style="padding-top:calc(12px + env(safe-area-inset-top))">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center font-black text-lg">BT</div>
+      <div>
+        <h1 class="text-white font-black text-[16px]">BAR TABACCHI V16</h1>
+        <p id="headerTurnoInfo" class="text-slate-400 text-[11px] font-bold">NESSUN TURNO APERTO</p>
+      </div>
+    </div>
+    <button id="statusSupa" onclick="refreshAll(true)" class="bg-yellow-400 text-black px-4 py-2 rounded-full text-[11px] font-black">DATABASE...</button>
+  </div>
+  <div class="px-3 py-2 flex gap-2 overflow-x-auto bg-white">
+    <button onclick="openTab('cassa')" id="b-cassa" class="bg-slate-900 text-white px-5 rounded-xl font-bold text-[12px]">CASSA</button>
+    <button onclick="openTab('carico')" id="b-carico" class="bg-white border-2 px-5 rounded-xl font-bold text-[12px]">CARICO</button>
+    <button onclick="openTab('report')" id="b-report" class="bg-white border-2 px-5 rounded-xl font-bold text-[12px]">RESOCONTI + TURNI</button>
+    <button onclick="openTab('mag')" id="b-mag" class="bg-white border-2 px-5 rounded-xl font-bold text-[12px]">MAGAZZINO</button>
+  </div>
+</header>
+
+<div id="turnoBar" class="fixed bottom-0 left-0 right-0 z-[60] bg-white border-t-4 border-slate-900 shadow-[0_-8px_30px_rgba(0,0,0,0.2)] px-3 py-3 flex gap-2" style="padding-bottom:calc(12px + env(safe-area-inset-bottom))">
+  <div class="flex-1 bg-slate-900 text-white rounded-2xl px-4 py-3 flex flex-col justify-center min-w-0">
+    <p class="text-[10px] font-bold text-slate-400 tracking-widest">TURNO ATTUALE</p>
+    <p id="turnoBarNome" class="font-black text-[15px] truncate">NESSUNO - INIZIA UN TURNO</p>
+    <p id="turnoBarOra" class="text-[11px] font-bold text-slate-300">-</p>
+  </div>
+  <button id="btnIniziaTurno" onclick="apriInizioTurno()" class="bg-emerald-500 text-white rounded-2xl px-6 py-4 font-black text-[12px] whitespace-nowrap">INIZIA TURNO</button>
+  <button id="btnChiudiTurno" onclick="chiudiTurno()" class="hidden bg-red-500 text-white rounded-2xl px-6 py-4 font-black text-[12px] whitespace-nowrap">CHIUDI TURNO</button>
+  <button id="btnResocontoTurno" onclick="apriResocontoTurnoCorrente()" class="hidden bg-yellow-400 text-black border-2 border-black rounded-2xl px-6 py-4 font-black text-[12px] whitespace-nowrap">RESOCONTO</button>
+</div>
+
+<div id="venditaToast" class="hidden fixed top-24 left-1/2 -translate-x-1/2 z-[500] bg-emerald-500 text-white rounded-3xl px-8 py-5 shadow-2xl border-4 border-white">
+  <div class="flex items-center gap-4">
+    <div class="w-12 h-12 bg-white text-emerald-500 rounded-full flex items-center justify-center text-3xl font-black">✓</div>
+    <div><div id="toastTitle" class="font-black text-[18px]">VENDITA CONCLUSA</div><div id="toastSub" class="text-[13px] font-bold opacity-90"></div></div>
+  </div>
+</div>
+
+<!-- ALERT -->
+<div id="customAlert" class="modal hidden fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4" onclick="if(event.target.id==='customAlert') closeAlert()">
+  <div class="bg-white rounded-[28px] p-7 max-w-[520px] w-full shadow-2xl border-4 border-black">
+    <div id="alertIcon" class="w-16 h-16 rounded-full flex items-center justify-center text-[32px] font-black mb-4 bg-orange-100">⚠️</div>
+    <h3 id="alertTitle" class="text-[28px] font-black text-slate-900 leading-none">ATTENZIONE</h3>
+    <p id="alertMessage" class="mt-4 text-[20px] font-bold text-slate-700 leading-relaxed whitespace-pre-line break-words">Messaggio</p>
+    <button onclick="closeAlert()" class="w-full mt-6 bg-slate-900 text-white rounded-2xl py-5 text-[20px] font-black">OK CAPITO</button>
+  </div>
+</div>
+
+<!-- CONFERMA -->
+<div id="confirmModal" class="modal hidden fixed inset-0 bg-black/70 z-[9000] flex items-center justify-center p-4">
+  <div class="bg-white rounded-[28px] p-7 max-w-[520px] w-full shadow-2xl border-4 border-black">
+    <h3 id="confirmTitle" class="text-[26px] font-black text-slate-900 leading-none">CONFERMA</h3>
+    <p id="confirmMessage" class="mt-4 text-[19px] font-bold text-slate-700 leading-relaxed whitespace-pre-line break-words"></p>
+    <div class="grid grid-cols-2 gap-3 mt-6">
+      <button onclick="confirmAnswer(false)" class="bg-white border-2 border-slate-900 rounded-2xl py-4 text-[18px] font-black">ANNULLA</button>
+      <button id="confirmOk" onclick="confirmAnswer(true)" class="bg-slate-900 text-white rounded-2xl py-4 text-[18px] font-black">CONFERMA</button>
+    </div>
+  </div>
+</div>
+
+<!-- NUMPAD UNICO -->
+<div id="customNumpad" class="modal hidden fixed inset-0 z-[300] bg-black/70 flex items-end justify-center p-3" onclick="if(event.target.id==='customNumpad') closeNumpad()">
+  <div class="bg-white rounded-[28px] w-full max-w-[500px] p-5 shadow-2xl border-4 border-black">
+    <div class="flex justify-between items-center mb-4"><span id="numpadLabel" class="font-black text-[18px]">QUANTITÀ</span><button onclick="closeNumpad()" class="w-12 h-12 min-h-0 bg-slate-100 rounded-full font-black text-xl">×</button></div>
+    <div id="numpadDisplay" class="bg-black text-yellow-300 rounded-2xl p-5 text-[52px] font-black text-center font-mono mb-4 tracking-widest min-h-[96px] break-all">0</div>
+    <div class="grid grid-cols-3 gap-3">
+      <button onclick="numpadPress('1')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">1</button>
+      <button onclick="numpadPress('2')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">2</button>
+      <button onclick="numpadPress('3')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">3</button>
+      <button onclick="numpadPress('4')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">4</button>
+      <button onclick="numpadPress('5')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">5</button>
+      <button onclick="numpadPress('6')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">6</button>
+      <button onclick="numpadPress('7')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">7</button>
+      <button onclick="numpadPress('8')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">8</button>
+      <button onclick="numpadPress('9')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">9</button>
+      <button onclick="numpadClear()" class="bg-red-500 text-white rounded-2xl py-7 font-black text-[20px]">C</button>
+      <button onclick="numpadPress('0')" class="bg-slate-900 text-white rounded-2xl py-7 font-black text-[30px]">0</button>
+      <button onclick="numpadDel()" class="bg-orange-400 rounded-2xl py-7 font-black text-[26px]">⌫</button>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mt-4">
+      <button id="numpadDot" onclick="numpadPress('.')" class="bg-white border-2 rounded-2xl py-5 font-black text-[28px]">,</button>
+      <button id="numpadOkBtn" onclick="numpadOk()" class="bg-emerald-500 text-white rounded-2xl py-5 font-black text-[22px]">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- TASTIERA ALFABETICA -->
+<div id="alphaKeyboard" class="modal hidden fixed inset-0 z-[350] bg-black/80 flex items-end justify-center p-2">
+  <div class="bg-white rounded-[24px] w-full max-w-[700px] p-4 shadow-2xl border-4 border-black">
+    <div class="flex justify-between items-center mb-3"><span id="alphaLabel" class="font-black text-[18px]">NOME TURNO</span><button onclick="closeAlphaKeyboard()" class="w-12 h-12 min-h-0 bg-slate-100 rounded-full font-black">×</button></div>
+    <div id="alphaChips" class="flex gap-2 flex-wrap mb-3"></div>
+    <div id="alphaDisplay" class="bg-black text-yellow-300 rounded-xl p-5 text-[32px] font-black text-center mb-3 min-h-[72px] flex items-center justify-center break-all">|</div>
+    <div id="alphaRows" class="space-y-2"></div>
+    <div class="grid grid-cols-4 gap-2 mt-3">
+      <button onclick="alphaPress(' ')" class="col-span-2 bg-slate-100 rounded-xl py-4 font-black">SPAZIO</button>
+      <button onclick="alphaClear()" class="bg-red-500 text-white rounded-xl py-4 font-black">CANC</button>
+      <button onclick="alphaOk()" class="bg-emerald-500 text-white rounded-xl py-4 font-black">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCORTE -->
+<div id="risolviModal" class="modal hidden fixed inset-0 bg-black/70 z-[250] flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl max-w-[640px] w-full max-h-[92vh] flex flex-col">
+    <div class="p-5 border-b flex justify-between items-center"><div><h3 class="font-black text-[18px]">RISOLVI RIGHE DEL PDF</h3><p id="wizProgress" class="text-[12px] text-slate-500"></p></div><button data-act="wizClose" class="w-10 h-10 min-h-0 bg-slate-100 rounded-full font-black">×</button></div>
+    <div id="risolviBody" class="p-5 overflow-auto flex-1"></div>
+  </div>
+</div>
+
+<div id="scorteModal" class="modal hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl max-w-[700px] w-full max-h-[85vh] flex flex-col">
+    <div class="p-6 border-b">
+      <div class="flex justify-between"><h3 class="font-black text-[18px]">GESTISCI SCORTE (livello target)</h3><button onclick="closeScorteModal()" class="w-10 h-10 min-h-0 bg-slate-100 rounded-full font-black">×</button></div>
+      <input id="searchScorte" oninput="renderScorteModal()" placeholder="Cerca..." class="mt-4 w-full border-2 rounded-2xl px-4 py-3">
+    </div>
+    <div id="scorteList" class="p-4 overflow-auto space-y-2 flex-1"></div>
+    <div class="p-4 border-t flex justify-end"><button onclick="closeScorteModal()" class="bg-slate-900 text-white rounded-2xl px-6 py-3 font-black">FATTO</button></div>
+  </div>
+</div>
+
+<!-- ORDINE -->
+<div id="ordineModal" class="modal hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl max-w-[900px] w-full max-h-[85vh] flex flex-col">
+    <div class="p-6 border-b">
+      <div class="flex justify-between">
+        <div><h3 class="font-black text-[18px]">COSA ORDINARE</h3><p class="text-[12px] text-slate-500">Ordinato per giorni di copertura, poi per data ultimo carico</p></div>
+        <button onclick="closeOrdineModal()" class="w-10 h-10 min-h-0 bg-slate-100 rounded-full font-black">×</button>
+      </div>
+      <div id="ordineSummary" class="mt-4 grid grid-cols-3 gap-3"></div>
+    </div>
+    <div id="ordineList" class="p-4 overflow-auto space-y-2 flex-1"></div>
+    <div class="p-4 border-t bg-yellow-50 flex gap-2">
+      <button onclick="exportOrdineCSV()" class="bg-slate-900 text-white rounded-2xl px-6 py-3 font-black text-[12px]">CSV ORDINE</button>
+      <button onclick="calcMedie(true)" class="bg-white border-2 rounded-2xl px-6 py-3 font-black text-[12px]">RICALCOLA ROTAZIONE</button>
+      <button onclick="closeOrdineModal()" class="ml-auto bg-white border-2 rounded-2xl px-6 py-3 font-black text-[12px]">CHIUDI</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESOCONTO TURNO -->
+<div id="turnoReportModal" class="modal hidden fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl max-w-[640px] w-full max-h-[85vh] flex flex-col">
+    <div class="p-6 border-b flex justify-between items-center">
+      <div><h3 class="font-black text-[18px]">RESOCONTO TURNO</h3><p id="turnoReportTitle" class="text-[12px] text-slate-500"></p></div>
+      <button onclick="closeTurnoReport()" class="w-10 h-10 min-h-0 bg-slate-100 rounded-full font-black">×</button>
+    </div>
+    <div id="turnoReportBody" class="p-4 overflow-auto flex-1"></div>
+    <div class="p-4 border-t flex gap-2">
+      <button onclick="exportTurnoCSV()" class="bg-slate-900 text-white rounded-2xl px-6 py-3 font-black text-[12px]">ESPORTA CSV</button>
+      <button onclick="closeTurnoReport()" class="ml-auto bg-white border-2 rounded-2xl px-6 py-3 font-black text-[12px]">CHIUDI</button>
+    </div>
+  </div>
+</div>
+
+<!-- CARICO PISTOLA -->
+<div id="pistolaCaricoModal" class="modal hidden fixed inset-0 bg-black/80 z-[110] flex items-center justify-center p-4">
+  <div class="bg-white rounded-[24px] border-4 border-orange-400 p-6 max-w-[450px] w-full">
+    <h3 class="font-black text-[18px]">CARICO PISTOLA</h3>
+    <p id="pCaricoInfo" class="mt-3 font-bold bg-orange-100 p-3 rounded-xl border-2 text-[14px] break-words"></p>
+    <p id="pCaricoStock" class="font-mono text-[12px] mt-2"></p>
+    <label class="font-black text-[14px] mt-4 block">QUANTI PEZZI SONO ARRIVATI?</label>
+    <input id="pCaricoQty" readonly onclick="apriNumpadCarico()" class="w-full mt-3 border-4 border-black rounded-2xl px-5 py-5 text-[36px] font-black text-center bg-yellow-50" placeholder="TAP">
+    <div class="grid grid-cols-2 gap-3 mt-4">
+      <button onclick="confermaPistolaCarico()" class="bg-black text-white rounded-2xl py-4 font-black">CONFERMA</button>
+      <button onclick="chiudiPistolaCarico()" class="bg-white border-2 rounded-2xl py-4 font-bold">Annulla</button>
+    </div>
+  </div>
+</div>
+
+<main class="max-w-[1600px] mx-auto p-4 md:p-6 pb-28">
+
+  <!-- ===== CASSA ===== -->
+  <div id="tab-cassa" class="tab-page">
+    <div class="grid grid-cols-12 gap-4">
+      <div class="col-span-12 lg:col-span-7 bg-white rounded-3xl border p-6">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <h2 class="font-black text-[18px] tracking-wider">CASSA <span id="cassaTurnoBadge" class="ml-2 bg-red-100 text-red-600 px-3 py-1 rounded-full text-[11px]">NESSUN TURNO</span></h2>
+        </div>
+        <input id="pistolaCassa" autocomplete="off" inputmode="none" style="position:fixed;left:10px;top:10px;width:1px;height:1px;opacity:0.01;z-index:1;" autofocus>
+        <div class="mt-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-3 text-center"><p class="text-[14px] font-black text-emerald-700 tracking-wide">🔫 PISTOLA ATTIVA</p></div>
+        <p id="lastScan" class="font-mono text-[13px] bg-slate-900 text-white mt-4 p-4 rounded-2xl break-all">In attesa pistola...</p>
+        <div class="mt-4 flex gap-2">
+          <input id="manualCode" placeholder="Codice manuale AAMS / EAN / LOGISTA" class="flex-1 border-2 rounded-2xl px-4 py-4 font-mono font-bold text-[14px]">
+          <button onclick="manualAdd()" class="bg-slate-900 text-white px-6 rounded-2xl font-black text-[14px]">OK</button>
+        </div>
+        <div class="mt-6 border-t pt-5">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="font-black text-[14px]">CATALOGO</h3>
+            <input id="searchCatalogo" oninput="renderCatalog()" placeholder="Cerca nel catalogo..." class="flex-1 max-w-[320px] border-2 rounded-2xl px-4 py-2 text-[14px] min-h-0 h-11">
+            <span id="countCatalogo" class="bg-slate-100 px-3 py-1 rounded-full text-[11px]"></span>
+          </div>
+          <div id="catalogoGrid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 mt-4"></div>
+        </div>
+      </div>
+      <div class="col-span-12 lg:col-span-5 space-y-4">
+        <div class="bg-slate-900 text-white rounded-3xl p-6">
+          <div class="flex justify-between items-center"><h2 class="font-black text-[18px]">SCONTRINO</h2><span id="pezziCarrello" class="bg-white/10 border px-4 py-2 rounded-full text-[12px] font-black">0 pz</span></div>
+          <div id="carrello" class="mt-5 space-y-2 min-h-[180px] max-h-[450px] overflow-auto"></div>
+          <div class="mt-5 bg-white/10 rounded-2xl p-5 flex justify-between items-center"><span class="text-[14px] font-bold text-slate-300">TOTALE</span><span id="totale" class="font-black text-[36px]">€ 0,00</span></div>
+          <div class="grid grid-cols-2 gap-3 mt-5">
+            <button onclick="setPay('contanti')" id="payContanti" class="bg-white text-slate-900 rounded-2xl py-4 font-black text-[15px]">💶 CONTANTI</button>
+            <button onclick="setPay('carta')" id="payCarta" class="bg-white/10 border rounded-2xl py-4 font-black text-[15px]">💳 CARTA</button>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mt-4">
+            <button onclick="svuotaCarrello()" class="bg-white/10 border rounded-2xl py-4 font-black text-[14px]">SVUOTA</button>
+            <button id="btnConcludi" onclick="finalizza()" class="bg-emerald-500 text-white rounded-2xl py-4 font-black text-[15px]">CONCLUDI</button>
+          </div>
+        </div>
+        <div class="bg-white rounded-3xl border p-5">
+          <div class="flex justify-between items-center"><h3 class="font-black text-[14px]">VENDITE OGGI</h3><span id="oggiTot" class="bg-slate-900 text-white px-4 py-2 rounded-full text-[12px] font-black">€ 0,00</span></div>
+          <div id="listaOggi" class="mt-4 space-y-2 max-h-[400px] overflow-auto"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CARICO ===== -->
+  <div id="tab-carico" class="tab-page hidden">
+    <div class="grid grid-cols-12 gap-4">
+      <div class="col-span-12 lg:col-span-6 space-y-4">
+        <div class="bg-white rounded-3xl border p-6">
+          <h2 class="font-black text-[18px]">CARICO DA PISTOLA</h2>
+          <p class="text-[13px] text-slate-500 mt-2">Scansiona il prodotto, inserisci i pezzi arrivati. Aggiorna la data ultimo carico.</p>
+          <div class="mt-4 bg-black rounded-2xl p-4 border-2 border-orange-400"><input id="pistolaCarico" inputmode="none" autocomplete="off" placeholder="SPARA IL CODICE" class="w-full bg-zinc-900 text-white border-2 border-orange-400 rounded-2xl px-5 py-5 font-mono font-black text-[22px] text-center outline-none"></div>
+          <div id="unknownHint" class="hidden mt-4"></div>
+        </div>
+        <div class="bg-slate-900 text-white rounded-3xl p-6">
+          <h2 class="font-black text-[18px]">ORDINI / CARICO DA PDF LOGISTA</h2>
+          <p class="text-[13px] text-slate-400 mt-2">Le righe sconosciute si risolvono in una finestra guidata (associa a un prodotto esistente o creane uno nuovo). Le quantità in giallo vanno confermate toccando i pezzi.</p>
+          <div class="mt-4 border-2 border-dashed border-white/30 rounded-3xl p-6 text-center bg-white/10">
+            <input type="file" id="pdfInput" accept=".pdf" class="hidden" onchange="handlePDF(this)">
+            <button onclick="document.getElementById('pdfInput').click()" class="bg-yellow-400 text-black rounded-2xl px-8 py-4 font-black text-[15px]">SELEZIONA PDF</button>
+            <p id="pdfStatus" class="text-[13px] mt-3 text-slate-300">Nessun file</p>
+          </div>
+          <div id="pdfPreview" class="hidden mt-4 bg-white text-slate-900 rounded-2xl p-4 max-h-[420px] overflow-auto"></div>
+          <div id="pdfActions" class="hidden mt-4 grid grid-cols-2 gap-3">
+            <button onclick="confermaCaricoPDF()" class="bg-emerald-500 text-white rounded-2xl py-4 font-black">CONFERMA CARICO</button>
+            <button onclick="annullaPDF()" class="bg-white/10 border rounded-2xl py-4 font-black">ANNULLA</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-span-12 lg:col-span-6">
+        <div class="bg-white rounded-3xl border p-6">
+          <h3 class="font-black text-[18px]">NUOVO PRODOTTO / CARICO MANUALE</h3>
+          <p class="text-[12px] text-slate-500 mt-1">Se il barcode esiste già, i pezzi vengono sommati alla giacenza.</p>
+          <div class="grid grid-cols-2 gap-3 mt-4">
+            <input id="newMarca" placeholder="Marca" class="border-2 rounded-2xl px-4 py-4 font-bold">
+            <input id="newNome" placeholder="Nome" class="border-2 rounded-2xl px-4 py-4 font-bold">
+            <input id="newPrezzo" readonly data-numpad="PREZZO €" data-decimal="1" placeholder="Prezzo €" class="border-2 rounded-2xl px-4 py-4 bg-yellow-50">
+            <input id="newQty" readonly data-numpad="QUANTITÀ" placeholder="Quantità" class="border-2 rounded-2xl px-4 py-4 bg-yellow-50">
+            <input id="newBarcode" placeholder="Barcode EAN / codice (obbligatorio)" class="col-span-2 border-2 rounded-2xl px-4 py-4 font-mono">
+            <input id="newCodAams2" placeholder="Cod AAMS" class="border-2 rounded-2xl px-4 py-4">
+            <input id="newCodLog2" placeholder="Cod Logista 10c" class="border-2 rounded-2xl px-4 py-4">
+            <input id="newCat" placeholder="Categoria (KS, TRINCIATO...)" class="col-span-2 border-2 rounded-2xl px-4 py-4">
+          </div>
+          <button onclick="addNewProduct()" class="w-full mt-4 bg-slate-900 text-white rounded-2xl py-4 font-black text-[15px]">SALVA PRODOTTO</button>
+          <input id="searchInv2" oninput="renderInvCarico()" placeholder="Cerca..." class="mt-5 w-full border-2 rounded-2xl px-4 py-4">
+          <div id="inventoryList2" class="mt-4 space-y-2 max-h-[500px] overflow-auto"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== REPORT ===== -->
+  <div id="tab-report" class="tab-page hidden">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white border rounded-3xl p-5"><p class="text-[12px] font-bold text-slate-500">INCASSO OGGI</p><p id="kpiOggi" class="font-black text-[32px] mt-2">€ 0,00</p></div>
+      <div class="bg-white border rounded-3xl p-5"><p class="text-[12px] font-bold text-slate-500">PEZZI OGGI</p><p id="kpiQtyOggi" class="font-black text-[32px] mt-2">0</p></div>
+      <div class="bg-slate-900 text-white rounded-3xl p-5"><p class="text-[12px] text-slate-400">CONTANTI / CARTA OGGI</p><p id="kpiPag" class="font-black text-[22px] mt-3">-</p></div>
+      <div class="bg-yellow-400 border-2 border-yellow-500 rounded-3xl p-5"><p class="text-[12px] font-black">VALORE MAGAZZINO (prezzo vendita)</p><p id="kpiMagazzino" class="font-black text-[32px] mt-2">€ 0,00</p></div>
+    </div>
+    <div class="mt-6 bg-white rounded-3xl border-2 border-slate-900 p-6">
+      <div class="flex justify-between items-center flex-wrap gap-3">
+        <div><h3 class="font-black text-[20px]">📊 RESOCONTO TURNI</h3><p class="text-[13px] text-slate-500 mt-1">Ultimi 30 turni</p></div>
+        <button onclick="exportTurniCSV()" class="bg-slate-900 text-white rounded-2xl px-6 py-3 font-black text-[13px]">ESPORTA CSV</button>
+      </div>
+      <div id="turniReportList" class="mt-5 space-y-3"></div>
+    </div>
+    <div class="mt-5 bg-white rounded-3xl border p-6">
+      <div class="flex flex-wrap gap-3">
+        <input type="date" id="filterDate" class="border-2 rounded-2xl px-4 py-3 text-[14px]">
+        <select id="filterPay" class="border-2 rounded-2xl px-4 py-3 text-[14px]"><option value="">Tutti</option><option value="contanti">Contanti</option><option value="carta">Carta</option></select>
+        <button onclick="loadReport()" class="bg-slate-900 text-white rounded-2xl px-6 py-3 font-black text-[14px]">FILTRA</button>
+        <button onclick="document.getElementById('filterDate').value='';loadReport()" class="bg-white border-2 rounded-2xl px-6 py-3 font-black text-[14px]">TUTTE LE DATE</button>
+        <button onclick="exportCSV()" class="bg-white border-2 rounded-2xl px-6 py-3 font-black text-[14px]">CSV VENDITE</button>
+      </div>
+      <p id="reportInfo" class="text-[12px] text-slate-500 mt-3"></p>
+      <div id="reportList" class="mt-3 space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- ===== MAGAZZINO ===== -->
+  <div id="tab-mag" class="tab-page hidden">
+    <div class="bg-white rounded-3xl border p-6">
+      <div class="flex flex-wrap justify-between items-center gap-3">
+        <h3 class="font-black text-[20px]">MAGAZZINO</h3>
+        <div class="flex gap-2 flex-wrap">
+          <button onclick="backupDati()" class="bg-emerald-500 text-white px-5 py-3 rounded-2xl font-black text-[13px]">BACKUP</button>
+          <button onclick="document.getElementById('restoreInput').click()" class="bg-white border-2 border-slate-900 px-5 py-3 rounded-2xl font-black text-[13px]">RIPRISTINA CATALOGO / BACKUP</button>
+          <input id="restoreInput" type="file" accept="application/json,.json" class="hidden" onchange="restoreDati(this)">
+          <button onclick="cambiaPin()" class="bg-white border-2 border-slate-900 px-5 py-3 rounded-2xl font-black text-[13px]">CAMBIA PIN</button>
+          <button onclick="openScorteModal()" class="bg-white border-2 border-slate-900 px-5 py-3 rounded-2xl font-black text-[13px]">SCORTE</button>
+          <button onclick="openOrdineModal()" class="bg-yellow-400 border-2 border-yellow-500 px-5 py-3 rounded-2xl font-black text-[13px]">ORDINARE</button>
+          <button onclick="calcMedie(true)" class="bg-slate-900 text-white px-5 py-3 rounded-2xl font-black text-[13px]">RICALCOLA GG</button>
+          <span id="totPezzi" class="bg-slate-900 text-white px-4 py-3 rounded-full text-[12px] font-black">0 pz</span>
+        </div>
+      </div>
+      <input id="searchInv" oninput="renderInv()" placeholder="Cerca marca, nome, EAN, AAMS, LOGISTA..." class="mt-5 w-full bg-slate-50 border-2 rounded-2xl px-5 py-4 font-bold text-[14px]">
+      <div id="inventoryList" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+'use strict';
+/* ============================================================
+   BAR TABACCHI V16
+   - vendite, turni, scorte e PIN stanno su Supabase (vedi setup.sql)
+   - magazzino modificato solo con funzioni atomiche lato database
+   ============================================================ */
+const SUPABASE_URL = "https://rzzebytiyyyrphxgeyrv.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_bw64czLD5Ge2oSRLCQ9A7A_J_4AZPmD";
+if(/INCOLLA-QUI/.test(SUPABASE_URL+SUPABASE_ANON_KEY)){
+  document.addEventListener('DOMContentLoaded',()=>{document.body.innerHTML='<div style="padding:40px;font:700 22px Arial">Configurazione mancante: nel file index.html vanno inserite le due righe SUPABASE_URL e SUPABASE_ANON_KEY del nuovo progetto Supabase.</div>';});
+  throw new Error('Supabase non configurato');
+}
+const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const T = 'prodotti_master';
+const COOLDOWN = 300, ADMIN_MS = 10*60*1000, POLL_MS = 30000, MEDIE_MS = 10*60*1000, SYNC_MEDIE_MS = 6*3600*1000;
+const PROTECTED = ['carico','report','mag'];
+
+const S = {
+  inv:[], byCode:new Map(), idx:new Map(), medie:new Map(),
+  turno:null, oggi:[], carrello:[], pay:'contanti', clientId:null, finalizing:false,
+  tab:'cassa', adminUntil:0, pinFails:0, pinLock:0,
+  pdf:[], pdfHash:null, pdfName:'', pdfInfo:null, alias:new Map(), aamsIdx:new Map(), caricoProd:null,
+  lastCode:null, lastTime:0, lastUnknown:null,
+  reportRows:[], turniRiep:[], reportTurnoId:null,
+  schemaOk:true, online:true, loaded:false
+};
+
+/* ---------- utilità ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const eur = n => '€ ' + Number(n||0).toFixed(2).replace('.', ',');
+const num = v => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? NaN : n; };
+const normCode = s => String(s||'').trim().toUpperCase().replace(/[^0-9A-Z]/g, '');
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-'+Date.now()+'-'+Math.random().toString(16).slice(2));
+const errMsg = e => (e && (e.message || e.details)) || String(e);
+const isNetErr = e => /failed to fetch|networkerror|network request|load failed|fetch/i.test(errMsg(e));
+function localDay(d=new Date()){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function dayRange(str){ const [y,m,d]=str.split('-').map(Number); return [new Date(y,m-1,d).toISOString(), new Date(y,m-1,d+1).toISOString()]; }
+const fmtTime = iso => new Date(iso).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+const fmtDate = iso => new Date(iso).toLocaleDateString('it-IT');
+const fmtDT = iso => fmtDate(iso)+' '+fmtTime(iso);
+const hay = p => (p.marca+' '+p.nome+' '+p.code+' '+p.codice_aams+' '+p.codice_logista).toLowerCase();
+const round2 = x => Math.round(x*100)/100;
+
+function csvCell(v){ const s=String(v ?? ''); return /[;"\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
+const csvNum = n => Number(n||0).toFixed(2).replace('.', ',');
+function downloadCSV(name, rows){
+  const csv = rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
+  const b = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+function downloadJSON(name, obj){
+  const b = new Blob([JSON.stringify(obj)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+
+/* ---------- focus pistola ---------- */
+const anyModalOpen = () => !!document.querySelector('.modal:not(.hidden)');
+function refocus(){
+  setTimeout(()=>{
+    if(anyModalOpen()) return;
+    if(S.tab==='cassa') $('pistolaCassa')?.focus();
+    else if(S.tab==='carico') $('pistolaCarico')?.focus();
+  }, 60);
+}
+document.addEventListener('click', e => { if(!e.target.closest('input,textarea,select')) refocus(); });
+
+/* ---------- alert / conferma / toast ---------- */
+function showAlert(msg, title='ATTENZIONE', type='warn'){
+  $('alertTitle').textContent = title; $('alertMessage').textContent = msg;
+  const icon = $('alertIcon');
+  const map = { error:['❌','bg-red-100'], success:['✅','bg-emerald-100'], stock:['📦','bg-yellow-100'], warn:['⚠️','bg-orange-100'] };
+  const [ic,bg] = map[type] || map.warn;
+  icon.textContent = ic; icon.className = 'w-16 h-16 rounded-full flex items-center justify-center text-[32px] font-black mb-4 '+bg;
+  $('customAlert').classList.remove('hidden');
+}
+function hideAlert(){ $('customAlert').classList.add('hidden'); }
+function closeAlert(){ hideAlert(); S.lastCode=null; S.lastTime=0; const a=$('pistolaCassa'), b=$('pistolaCarico'); if(a) a.value=''; if(b) b.value=''; refocus(); }
+const showSuccess=(m,t='FATTO')=>showAlert(m,t,'success'), showError=(m,t='ERRORE')=>showAlert(m,t,'error'),
+      showWarning=(m,t='ATTENZIONE')=>showAlert(m,t,'warn'), showStock=(m,t='MAGAZZINO')=>showAlert(m,t,'stock');
+
+let confirmResolve = null;
+function askConfirm(msg, {title='CONFERMA', ok='CONFERMA', danger=false}={}){
+  return new Promise(res=>{
+    confirmResolve = res;
+    $('confirmTitle').textContent = title; $('confirmMessage').textContent = msg;
+    const b = $('confirmOk'); b.textContent = ok;
+    b.className = (danger?'bg-red-500':'bg-slate-900')+' text-white rounded-2xl py-4 text-[18px] font-black';
+    $('confirmModal').classList.remove('hidden');
+  });
+}
+function confirmAnswer(v){ $('confirmModal').classList.add('hidden'); const r=confirmResolve; confirmResolve=null; if(r) r(v); refocus(); }
+
+let toastTimer=null;
+function toast(title, sub, ms=1400){
+  $('toastTitle').textContent = title; $('toastSub').textContent = sub || '';
+  const t=$('venditaToast'); t.classList.remove('hidden'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.add('hidden'), ms);
+}
+
+/* ---------- numpad ---------- */
+let NP = null;
+function openNumpad({label, initial='', decimal=false, maxLen=8, mask=false, allowEmpty=false, validate=null, onOk}){
+  NP = { buf:String(initial ?? ''), decimal, maxLen, mask, allowEmpty, validate, onOk };
+  $('numpadLabel').textContent = label || 'INSERISCI NUMERO';
+  $('numpadDot').classList.toggle('hidden', !decimal);
+  $('numpadOkBtn').parentElement.className = decimal ? 'grid grid-cols-2 gap-3 mt-4' : 'grid grid-cols-1 gap-3 mt-4';
+  npRender(); $('customNumpad').classList.remove('hidden');
+}
+function npRender(){
+  if(!NP) return;
+  $('numpadDisplay').textContent = NP.mask ? (NP.buf ? '•'.repeat(NP.buf.length) : '') : (NP.buf==='' ? '0' : NP.buf.replace('.', ','));
+}
+function closeNumpad(){ $('customNumpad').classList.add('hidden'); NP=null; refocus(); }
+function numpadPress(d){
+  if(!NP) return;
+  if(d==='.'){ if(!NP.decimal || NP.buf.includes('.')) return; if(NP.buf==='') NP.buf='0'; }
+  if(NP.buf.length >= NP.maxLen) return;
+  if(NP.buf==='0' && d!=='.') NP.buf = d; else NP.buf += d;
+  npRender();
+}
+function numpadClear(){ if(NP){ NP.buf=''; npRender(); } }
+function numpadDel(){ if(NP){ NP.buf=NP.buf.slice(0,-1); npRender(); } }
+function numpadOk(){
+  if(!NP) return;
+  if(NP.buf==='' && !NP.allowEmpty) return;
+  if(NP.validate){ const err = NP.validate(NP.buf); if(err){ showWarning(err); return; } }
+  const cb = NP.onOk, buf = NP.buf;
+  closeNumpad();
+  if(cb) cb(buf);
+}
+/* campi readonly con data-numpad: tocco = apre il numpad */
+document.addEventListener('click', e => {
+  const el = e.target.closest('input[data-numpad]');
+  if(!el) return;
+  openNumpad({ label: el.dataset.numpad, initial: el.value, decimal: !!el.dataset.decimal, onOk: v => { el.value = v; } });
+});
+
+/* ---------- tastiera alfabetica ---------- */
+let alphaBuffer='', alphaCallback=null;
+(function buildAlphaRows(){
+  const rows=[['1','2','3','4','5','6','7','8','9','0'],['Q','W','E','R','T','Y','U','I','O','P'],['A','S','D','F','G','H','J','K','L',"'"],['Z','X','C','V','B','N','M','.','-']];
+  $('alphaRows').innerHTML = rows.map(r=>`<div class="grid gap-2" style="grid-template-columns:repeat(${r.length},minmax(0,1fr))">`+r.map(k=>`<button class="key" data-alpha="${k}">${k}</button>`).join('')+(r===rows[3]?'<button class="bg-orange-400 rounded-xl py-4 font-black min-h-0" data-alpha="DEL">⌫</button>':'')+'</div>').join('');
+  $('alphaRows').addEventListener('click', e=>{ const b=e.target.closest('[data-alpha]'); if(!b) return; b.dataset.alpha==='DEL'?alphaDel():alphaPress(b.dataset.alpha); });
+})();
+function recentNames(){ try{ return JSON.parse(localStorage.getItem('bt_nomi_turni')||'[]'); }catch(e){ return []; } }
+function openAlpha(label, initial, cb){
+  alphaBuffer = initial||''; alphaCallback = cb;
+  $('alphaLabel').textContent = label || 'NOME';
+  $('alphaDisplay').textContent = alphaBuffer || '|';
+  $('alphaChips').innerHTML = recentNames().map(n=>`<button class="chip bg-yellow-100 border-2 border-yellow-400 rounded-full px-4 py-2 font-black text-[13px]" data-name="${esc(n)}">${esc(n)}</button>`).join('');
+  $('alphaKeyboard').classList.remove('hidden');
+}
+$('alphaChips').addEventListener('click', e=>{ const b=e.target.closest('[data-name]'); if(!b) return; alphaBuffer=b.dataset.name; $('alphaDisplay').textContent=alphaBuffer; });
+function closeAlphaKeyboard(){ $('alphaKeyboard').classList.add('hidden'); alphaCallback=null; refocus(); }
+function alphaPress(c){ if(alphaBuffer.length>25) return; alphaBuffer+=c; $('alphaDisplay').textContent=alphaBuffer; }
+function alphaDel(){ alphaBuffer=alphaBuffer.slice(0,-1); $('alphaDisplay').textContent=alphaBuffer||'|'; }
+function alphaClear(){ alphaBuffer=''; $('alphaDisplay').textContent='|'; }
+function alphaOk(){
+  const val = alphaBuffer.trim().toUpperCase();
+  if(!val){ showWarning('Inserisci un nome!','TURNO'); return; }
+  const names = recentNames().filter(n=>n!==val); names.unshift(val);
+  try{ localStorage.setItem('bt_nomi_turni', JSON.stringify(names.slice(0,5))); }catch(e){}
+  const cb = alphaCallback; $('alphaKeyboard').classList.add('hidden'); alphaCallback=null;
+  if(cb) cb(val);
+}
+
+/* ---------- PIN amministratore ---------- */
+const isAdmin = () => Date.now() < S.adminUntil;
+function requireAdmin(cb, area='AREA RISERVATA'){
+  if(isAdmin()){ S.adminUntil = Date.now()+ADMIN_MS; cb(); return; }
+  if(Date.now() < S.pinLock){ showWarning('Troppi tentativi errati.\nRiprova tra '+Math.ceil((S.pinLock-Date.now())/1000)+' secondi.','PIN BLOCCATO'); return; }
+  openNumpad({ label:'PIN: '+area, mask:true, maxLen:12, onOk: async pin => {
+    try{
+      const { data, error } = await supa.rpc('verifica_pin', { p_pin: pin });
+      if(error) throw error;
+      if(data === true){ S.pinFails=0; S.adminUntil = Date.now()+ADMIN_MS; cb(); }
+      else{
+        S.pinFails++;
+        if(S.pinFails>=5){ S.pinLock = Date.now()+60000; S.pinFails=0; showError('5 tentativi errati: PIN bloccato per 60 secondi.','PIN ERRATO'); }
+        else showError('PIN errato.','ACCESSO NEGATO');
+      }
+    }catch(e){ showError('Impossibile verificare il PIN:\n'+errMsg(e),'CONNESSIONE'); }
+  }});
+}
+function cambiaPin(){
+  requireAdmin(()=>{
+    openNumpad({ label:'PIN ATTUALE', mask:true, maxLen:12, onOk: old => {
+      setTimeout(()=>openNumpad({ label:'NUOVO PIN (6-12 cifre)', mask:true, maxLen:12,
+        validate:v=>/^\d{6,12}$/.test(v)?null:'Il PIN deve avere da 6 a 12 cifre',
+        onOk: async nuovo => {
+          try{
+            const { data, error } = await supa.rpc('cambia_pin', { p_old: old, p_new: nuovo });
+            if(error) throw error;
+            if(data === true){ S.adminUntil=0; showSuccess('PIN cambiato. Al prossimo accesso usa il nuovo PIN.','PIN'); }
+            else showError('PIN attuale errato.','PIN');
+          }catch(e){ showError(errMsg(e),'PIN'); }
+        }}), 50);
+    }});
+  }, 'CAMBIA PIN');
+}
+setInterval(()=>{ if(PROTECTED.includes(S.tab) && !isAdmin() && !anyModalOpen()) _showTab('cassa'); }, 15000);
+
+/* ---------- caricamento dati ---------- */
+const mapRow = r => ({
+  code:r.barcode, marca:r.marca||'', nome:r.nome||'', prezzo:Number(r.prezzo)||0, qty:Number(r.quantita)||0,
+  codice_aams:r.codice_aams||'', codice_logista:r.codice_logista||'', categoria:r.categoria||'KS',
+  ultimo:r.data_ultimo_carico, scorta:(r.scorta==null?20:Number(r.scorta)), media:0
+});
+
+async function checkSchema(){
+  const { data, error } = await supa.rpc('versione_schema');
+  if(error){
+    if(isNetErr(error)) throw error;
+    S.schemaOk = false;
+    showError('Il database non è aggiornato.\nEsegui il file SQL (setup_nuovo.sql, oppure aggiornamento_v16.sql) nello SQL Editor di Supabase, poi ricarica l\'app.\n\nDettaglio: '+errMsg(error),'SETUP DATABASE');
+    return false;
+  }
+  S.schemaOk = (data >= 16);
+  if(!S.schemaOk) showError('Versione database troppo vecchia.\nEsegui il file aggiornamento_v16.sql nello SQL Editor di Supabase, poi ricarica l\'app.','SETUP DATABASE');
+  return S.schemaOk;
+}
+
+async function loadInventory(quiet=false){
+  if(!quiet) updateStatus('CARICO...','y');
+  try{
+    let rows=[], from=0;
+    for(;;){
+      const { data, error } = await supa.from(T).select('*').order('barcode').range(from, from+999);
+      if(error) throw error;
+      rows = rows.concat(data);
+      if(data.length < 1000) break;
+      from += 1000;
+    }
+    S.inv = rows.map(mapRow).sort((a,b)=>a.marca.localeCompare(b.marca)||a.nome.localeCompare(b.nome));
+    S.byCode = new Map(S.inv.map(p=>[p.code,p]));
+    try{ const al=await supa.from('codici_alias').select('*'); if(al.error) throw al.error; S.alias=new Map((al.data||[]).map(a=>[aamsKey(a.codice),a.barcode])); }catch(e){ console.warn('alias',e); }
+    buildIndex(); applyMedie();
+    if(S.pdf && S.pdf.length) S.pdf.forEach(risolviRiga);
+    S.online = true; S.loaded = true;
+  }catch(e){
+    S.online = false;
+    if(!quiet) showError('Errore caricamento magazzino:\n'+errMsg(e),'CONNESSIONE');
+  }
+  render();
+}
+
+async function loadMedie(){
+  try{
+    const { data, error } = await supa.rpc('medie_vendita', { p_giorni: 30 });
+    if(error) throw error;
+    S.medie = new Map((data||[]).map(r=>[r.barcode, { pezzi:Number(r.pezzi), giorni:Number(r.giorni)||1 }]));
+    applyMedie();
+  }catch(e){ console.warn('medie', e); }
+}
+function applyMedie(){ for(const p of S.inv){ const m=S.medie.get(p.code); p.media = m ? m.pezzi/m.giorni : 0; } }
+const copertura = p => p.media>0 ? p.qty/p.media : Infinity;
+const fmtGG = p => { const g=copertura(p); return Number.isFinite(g) ? g.toFixed(1)+' gg' : '∞'; };
+function statoProd(p){
+  const g=copertura(p);
+  if(p.qty<=0) return {t:'ESAURITO', c:'bg-red-200 text-red-800'};
+  if(g<3) return {t:'CRITICO', c:'bg-red-100 text-red-700'};
+  if(g<7) return {t:'BASSO', c:'bg-yellow-100 text-yellow-700'};
+  return {t:'OK', c:'bg-emerald-100 text-emerald-700'};
+}
+
+/* Ricalcolo: la visualizzazione è sempre aggiornata; qui si salva su DB (una sola chiamata) */
+async function syncMedie(){
+  const payload = S.inv.map(p=>({ barcode:p.code, media:Math.round(p.media*1000)/1000, gg:Number.isFinite(copertura(p))?Math.round(copertura(p)*10)/10:999 }));
+  const { error } = await supa.rpc('aggiorna_medie', { p_data: payload });
+  if(error) throw error;
+  try{ localStorage.setItem('bt_medie_sync', String(Date.now())); }catch(e){}
+}
+async function calcMedie(manual=false){
+  try{
+    await loadMedie(); await syncMedie(); render();
+    if(manual) showSuccess('Medie degli ultimi 30 giorni ricalcolate e salvate.\nI prodotti senza vendite risultano a copertura infinita (∞).','ROTAZIONE');
+  }catch(e){ if(manual) showError(errMsg(e),'ROTAZIONE'); }
+}
+function maybeAutoSync(){
+  let last=0; try{ last=Number(localStorage.getItem('bt_medie_sync')||0); }catch(e){}
+  if(Date.now()-last > SYNC_MEDIE_MS && S.inv.length) syncMedie().catch(()=>{});
+}
+
+async function loadTurno(){
+  try{
+    const { data, error } = await supa.from('turni_riepilogo').select('*').is('end_at', null).maybeSingle();
+    if(error) throw error;
+    S.turno = data || null;
+  }catch(e){ console.warn('turno', e); }
+  updateTurnoUI();
+}
+async function loadVenditeOggi(){
+  try{
+    const [a,b] = dayRange(localDay());
+    const { data, error } = await supa.from('vendite').select('*').gte('created_at',a).lt('created_at',b).order('created_at',{ascending:false}).limit(1000);
+    if(error) throw error;
+    S.oggi = data || [];
+  }catch(e){ console.warn('vendite oggi', e); }
+  renderOggi();
+}
+async function refreshAll(manual=false){
+  if(manual) updateStatus('CARICO...','y');
+  try{
+    if(manual || !S.schemaOk){ if(!(await checkSchema())) { updateStatus(); return; } }
+    await loadInventory(!manual);
+    await Promise.all([loadTurno(), loadVenditeOggi(), loadMedie()]);
+    render();
+  }catch(e){ S.online=false; if(manual) showError('Nessuna connessione al database:\n'+errMsg(e),'CONNESSIONE'); updateStatus(); }
+}
+async function refreshLive(){
+  if(document.hidden || S.finalizing) return;
+  await loadInventory(true);
+  await Promise.all([loadTurno(), loadVenditeOggi()]);
+  if(PROTECTED.includes(S.tab) && S.tab==='report' && $('turnoReportModal').classList.contains('hidden')) loadReport();
+}
+function updateStatus(txt, col){
+  const b=$('statusSupa'); if(!b) return;
+  if(txt){ b.textContent=txt; b.className='bg-yellow-400 text-black px-4 py-2 rounded-full text-[11px] font-black'; return; }
+  if(!S.schemaOk){ b.textContent='SETUP DB MANCANTE'; b.className='bg-red-500 text-white px-4 py-2 rounded-full text-[11px] font-black'; }
+  else if(!S.online || !navigator.onLine){ b.textContent='OFFLINE'; b.className='bg-red-500 text-white px-4 py-2 rounded-full text-[11px] font-black'; }
+  else { b.textContent=S.inv.length+' PRODOTTI - OK'; b.className='bg-emerald-500 text-white px-4 py-2 rounded-full text-[11px] font-black'; }
+}
+window.addEventListener('online', ()=>refreshAll(false));
+window.addEventListener('offline', ()=>updateStatus());
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refreshLive(); });
+
+/* ---------- ricerca prodotti (solo match esatti, fallback per suffisso solo se univoco) ---------- */
+const stripZeros = c => /^\d+$/.test(c) ? c.replace(/^0+(?=\d)/,'') : c;
+function buildIndex(){
+  S.idx = new Map();
+  const add = (k,p)=>{
+    k = normCode(k); if(!k) return;
+    for(const key of new Set([k, stripZeros(k)])){
+      let a=S.idx.get(key); if(!a){ a=[]; S.idx.set(key,a); }
+      if(!a.includes(p)) a.push(p);
+    }
+  };
+  S.inv.forEach(p=>{ add(p.code,p); add(p.codice_aams,p); add(p.codice_logista,p); });
+  S.aamsIdx = new Map();
+  const addA = (k,p)=>{ k=aamsKey(k); if(!k) return; let a=S.aamsIdx.get(k); if(!a){ a=[]; S.aamsIdx.set(k,a); } if(!a.includes(p)) a.push(p); };
+  S.inv.forEach(p=>addA(p.codice_aams,p));
+  S.alias.forEach((barcode,k)=>{ const p=S.byCode.get(barcode); if(p){ addA(k,p); add(k,p); } });
+}
+function resolve(cands){
+  cands = cands.map(normCode).filter(Boolean);
+  for(const c of cands){
+    const a = S.idx.get(c) || S.idx.get(stripZeros(c));
+    if(a && a.length===1) return { prod:a[0] };
+    if(a && a.length>1) return { ambiguous:a };
+  }
+  for(const c of cands){
+    if(c.length < 8) continue;
+    const hits = S.inv.filter(p=>{
+      const k=normCode(p.code), l=normCode(p.codice_logista);
+      return (k.length>=7 && (c.includes(k) || k.includes(c))) || (l.length>=8 && (l.endsWith(c.slice(-8)) || c.endsWith(l)));
+    });
+    if(hits.length===1) return { prod:hits[0], approx:true };
+    if(hits.length>1) return { ambiguous:hits };
+  }
+  return {};
+}
+
+/* ---------- scansione ---------- */
+function handleScan(raw, mode){
+  const code = normCode(raw);
+  if(code.length < 3) return;
+  if(!$('customAlert').classList.contains('hidden')){ hideAlert(); S.lastCode=null; S.lastTime=0; }
+  if(!S.inv.length){ $('lastScan').textContent='ATTENDI CARICAMENTO...'; showWarning('Magazzino non ancora caricato.','CARICAMENTO'); loadInventory(); return; }
+  const now = Date.now();
+  if(code===S.lastCode && (now-S.lastTime)<COOLDOWN) return;
+  S.lastCode = code; S.lastTime = now;
+
+  const r = resolve([code]);
+  if(r.ambiguous){
+    $('lastScan').textContent = 'Letto: '+code+' -> AMBIGUO';
+    showWarning('Il codice '+code+' corrisponde a più prodotti:\n'+r.ambiguous.slice(0,5).map(p=>'• '+p.marca+' '+p.nome).join('\n')+'\n\nScegli il prodotto dal catalogo.','CODICE AMBIGUO');
+    return;
+  }
+  if(!r.prod){
+    $('lastScan').textContent = 'Letto: '+code+' -> NON TROVATO';
+    S.lastUnknown = code;
+    if(mode==='carico'){ fillNewProduct(code); }
+    else showWarning('Codice '+code+' non presente in anagrafica.\nChiedi al titolare di censirlo dalla scheda CARICO.','CODICE NON TROVATO');
+    renderUnknownHint();
+    return;
+  }
+  const prod = r.prod;
+  $('lastScan').textContent = 'Letto: '+code+' -> '+prod.marca+' '+prod.nome+(r.approx?' (corrispondenza approssimata)':'');
+  if(mode==='cassa') addToCart(prod); else apriPistolaCarico(prod);
+}
+function manualAdd(){ const el=$('manualCode'); const code=el.value.trim(); if(!code) return; S.lastCode=null; handleScan(code,'cassa'); el.value=''; }
+
+function fillNewProduct(code){
+  $('newBarcode').value = code;
+  showWarning('Codice '+code+' non in anagrafica.\nCompila il modulo "Nuovo prodotto" a destra.','NUOVO CODICE');
+}
+function renderUnknownHint(){
+  const el=$('unknownHint'); if(!el) return;
+  if(S.lastUnknown){
+    el.classList.remove('hidden');
+    el.innerHTML = `<div class="bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-4 flex items-center justify-between gap-3"><p class="text-[13px] font-bold break-all">Ultimo codice non trovato in cassa: <span class="font-mono">${esc(S.lastUnknown)}</span></p><button data-act="useUnknown" class="bg-slate-900 text-white rounded-xl px-4 py-2 min-h-0 font-black text-[12px] whitespace-nowrap">CENSISCI</button></div>`;
+  } else el.classList.add('hidden');
+}
+
+/* ---------- carrello ---------- */
+function cartChanged(){ S.clientId = null; renderCart(); }
+function addToCart(prod){
+  if(!S.turno){ showWarning('Apri un turno prima di vendere.\nUsa il pulsante verde INIZIA TURNO in basso.','NESSUN TURNO'); return; }
+  const inv = S.byCode.get(prod.code);
+  if(!inv || inv.qty<=0){ showStock('Prodotto esaurito:\n'+prod.marca+' '+prod.nome,'ESAURITO'); return; }
+  const inCart = S.carrello.find(c=>c.code===prod.code);
+  if((inCart?inCart.qty:0) >= inv.qty){ showStock('Hai già inserito tutti i pezzi disponibili.\nDisponibili: '+inv.qty,'STOCK FINITO'); return; }
+  if(inCart) inCart.qty++; else S.carrello.push({ code:prod.code, marca:prod.marca, nome:prod.nome, prezzo:prod.prezzo, qty:1 });
+  cartChanged();
+}
+function setCartQty(i, q){
+  const it=S.carrello[i]; if(!it) return;
+  const inv=S.byCode.get(it.code); const max=inv?inv.qty:0;
+  if(q<=0){ S.carrello.splice(i,1); }
+  else if(q>max){ showStock('Disponibili solo '+max+' pezzi','SCORTE'); return; }
+  else it.qty=q;
+  cartChanged();
+}
+function editCartQty(i){
+  const it=S.carrello[i]; if(!it) return;
+  const inv=S.byCode.get(it.code); const max=inv?inv.qty:0;
+  openNumpad({ label:'QUANTITÀ (max '+max+')', initial:String(it.qty),
+    validate:v=>{ const n=parseInt(v); if(isNaN(n)||n<1) return 'Minimo 1 pezzo'; if(n>max) return 'Disponibili solo '+max+' pezzi'; return null; },
+    onOk:v=>setCartQty(i, parseInt(v)) });
+}
+async function svuotaCarrello(){
+  if(!S.carrello.length) return;
+  if(!(await askConfirm('Svuotare lo scontrino?',{title:'SVUOTA',ok:'SVUOTA',danger:true}))) return;
+  S.carrello=[]; cartChanged();
+}
+function setPay(m){
+  S.pay=m; S.clientId=null;
+  const on='bg-white text-slate-900 rounded-2xl py-4 font-black text-[15px]', off='bg-white/10 border rounded-2xl py-4 font-black text-[15px]';
+  $('payContanti').className = m==='contanti'?on:off; $('payCarta').className = m==='carta'?on:off;
+}
+
+async function finalizza(){
+  if(S.finalizing || !S.carrello.length) return;
+  if(!S.turno){ showWarning('Apri un turno prima di concludere la vendita.','NESSUN TURNO'); return; }
+  if(!navigator.onLine){ showError('Nessuna connessione.\nLa vendita NON è stata registrata: ricollega il WiFi e riprova.','OFFLINE'); return; }
+  S.finalizing = true; $('btnConcludi').disabled = true; $('btnConcludi').classList.add('opacity-50');
+  if(!S.clientId) S.clientId = uuid();
+  try{
+    const items = S.carrello.map(i=>({ code:i.code, qty:i.qty }));
+    const { data, error } = await supa.rpc('vendi_carrello', { p_turno:S.turno.id, p_pagamento:S.pay, p_items:items, p_client_id:S.clientId });
+    if(error) throw error;
+    for(const it of (data.items||[])){ const p=S.byCode.get(it.code); if(p && !data.duplicato) p.qty=Math.max(0,p.qty-it.qty); }
+    S.oggi.unshift({ id:data.id, created_at:data.created_at, turno_nome:data.turno_nome, pagamento:data.pagamento, totale:data.totale, items:data.items, stornata:false });
+    S.carrello=[]; S.clientId=null;
+    render();
+    toast(data.duplicato?'GIÀ REGISTRATA':'VENDITA CONCLUSA', 'Totale '+eur(data.totale)+(S.turno?' - '+S.turno.nome:''));
+    loadTurno(); loadInventory(true);
+  }catch(e){
+    if(isNetErr(e)) showError('Connessione assente o lenta.\nLa vendita potrebbe NON essere stata registrata.\nControlla "Vendite oggi" prima di riprovare: se riprovi senza modificare lo scontrino non verrà duplicata.','CONNESSIONE');
+    else showError(errMsg(e),'VENDITA NON REGISTRATA');
+    loadInventory(true);
+  }finally{
+    S.finalizing=false; $('btnConcludi').disabled=false; $('btnConcludi').classList.remove('opacity-50');
+    refocus();
+  }
+}
+
+/* ---------- turni ---------- */
+function apriInizioTurno(){
+  if(S.turno){ showWarning('C\'è già un turno aperto:\n'+S.turno.nome,'TURNO APERTO'); return; }
+  openAlpha('NOME TURNO / DIPENDENTE','', nome=>{
+    openNumpad({ label:'FONDO CASSA € (vuoto = 0)', decimal:true, allowEmpty:true, onOk: async v=>{
+      const fondo = v==='' ? 0 : num(v);
+      try{
+        const { error } = await supa.rpc('apri_turno', { p_nome:nome, p_fondo:fondo });
+        if(error) throw error;
+        await loadTurno(); render();
+        showSuccess('Turno iniziato:\n'+nome+(fondo>0?'\nFondo cassa '+eur(fondo):''),'TURNO APERTO');
+      }catch(e){ await loadTurno(); showError(errMsg(e),'TURNO'); }
+    }});
+  });
+}
+async function chiudiTurno(){
+  await loadTurno();
+  const t = S.turno;
+  if(!t){ showWarning('Nessun turno aperto.','TURNO'); render(); return; }
+  const atteso = Number(t.fondo_cassa)+Number(t.contanti);
+  openNumpad({ label:'CONTANTI IN CASSA (atteso '+eur(atteso)+') - vuoto = non contato', decimal:true, allowEmpty:true, onOk: async v=>{
+    const contati = v==='' ? null : num(v);
+    let msg = 'Turno: '+t.nome+'\nScontrini: '+t.scontrini+'\nIncasso: '+eur(t.incasso)+'\n  contanti '+eur(t.contanti)+'\n  carta '+eur(t.carta)+'\nFondo cassa: '+eur(t.fondo_cassa)+'\nAtteso in cassa: '+eur(atteso);
+    if(contati!==null){ const d=round2(contati-atteso); msg += '\nContati: '+eur(contati)+'\nDIFFERENZA: '+(d>0?'+':'')+eur(d).replace('€ ','€ '); }
+    if(!(await askConfirm(msg,{title:'CHIUDERE IL TURNO?',ok:'CHIUDI TURNO',danger:true}))) return;
+    try{
+      const { error } = await supa.rpc('chiudi_turno', { p_id:t.id, p_contanti:contati });
+      if(error) throw error;
+      await loadTurno(); render();
+      showSuccess('Turno chiuso.','TURNO CHIUSO');
+    }catch(e){ await loadTurno(); showError(errMsg(e),'TURNO'); }
+  }});
+}
+function updateTurnoUI(){
+  const t=S.turno;
+  const badge=$('cassaTurnoBadge');
+  if(t){
+    badge.textContent = t.nome+' - APERTO'; badge.className='ml-2 bg-emerald-500 text-white px-3 py-1 rounded-full text-[11px]';
+    $('turnoBarNome').textContent = t.nome+' - '+eur(t.incasso)+' ('+t.pezzi+' pz)';
+    $('turnoBarOra').textContent = 'Iniziato '+(fmtDate(t.start_at)===fmtDate(new Date().toISOString())?'alle '+fmtTime(t.start_at):fmtDT(t.start_at));
+    $('headerTurnoInfo').textContent = 'TURNO: '+t.nome;
+  } else {
+    badge.textContent='NESSUN TURNO'; badge.className='ml-2 bg-red-100 text-red-600 px-3 py-1 rounded-full text-[11px]';
+    $('turnoBarNome').textContent='NESSUNO - INIZIA UN TURNO'; $('turnoBarOra').textContent='-'; $('headerTurnoInfo').textContent='NESSUN TURNO APERTO';
+  }
+  $('btnIniziaTurno').classList.toggle('hidden', !!t);
+  $('btnChiudiTurno').classList.toggle('hidden', !t);
+  $('btnResocontoTurno').classList.toggle('hidden', !t);
+}
+function apriResocontoTurnoCorrente(){ if(!S.turno){ showWarning('Nessun turno aperto.','TURNO'); return; } apriResocontoTurno(S.turno.id); }
+async function apriResocontoTurno(id){
+  try{
+    const [tr, vr] = await Promise.all([
+      supa.from('turni_riepilogo').select('*').eq('id',id).single(),
+      supa.from('vendite').select('*').eq('turno_id',id).order('created_at',{ascending:false}).limit(1000)
+    ]);
+    if(tr.error) throw tr.error; if(vr.error) throw vr.error;
+    const t=tr.data, vend=vr.data||[];
+    S.reportTurnoId = id;
+    $('turnoReportTitle').textContent = t.nome+' - '+fmtDT(t.start_at)+' → '+(t.end_at?fmtTime(t.end_at):'APERTO');
+    const atteso = Number(t.fondo_cassa)+Number(t.contanti);
+    const box=(l,v,cls='bg-white border-2')=>`<div class="${cls} rounded-xl p-3 text-center"><p class="text-[9px] text-slate-400 font-bold">${l}</p><p class="font-black text-[17px]">${v}</p></div>`;
+    let html = '<div class="grid grid-cols-3 gap-2 mb-2">'+box('INCASSO',eur(t.incasso),'bg-slate-900 text-white')+box('CONTANTI',eur(t.contanti))+box('CARTA',eur(t.carta))+'</div>';
+    html += '<div class="grid grid-cols-3 gap-2 mb-4">'+box('PEZZI',t.pezzi)+box('SCONTRINI',t.scontrini,'bg-yellow-100 border')+box('FONDO CASSA',eur(t.fondo_cassa))+'</div>';
+    html += `<div class="bg-slate-50 border rounded-xl p-3 mb-4 text-[13px] font-bold">Atteso in cassa: ${eur(atteso)}`;
+    if(t.contanti_contati!=null){ const d=round2(Number(t.contanti_contati)-atteso); html += ` · Contati: ${eur(t.contanti_contati)} · Differenza: <span class="${d===0?'text-emerald-600':'text-red-600'}">${d>0?'+':''}${eur(d)}</span>`; }
+    html += '</div><div class="space-y-2">';
+    html += vend.map(v=>`<div class="bg-slate-50 border rounded-xl p-2.5 flex justify-between gap-2 text-[11px] ${v.stornata?'opacity-50':''}"><span class="min-w-0 break-words">${fmtTime(v.created_at)} ${v.pagamento==='carta'?'💳':'💶'} - ${esc((v.items||[]).map(i=>i.marca+' x'+i.qty).join(', '))}${v.stornata?' <b class="text-red-600">STORNATA</b>':''}</span><span class="font-black whitespace-nowrap ${v.stornata?'line-through':''}">${eur(v.totale)}</span></div>`).join('');
+    html += '</div>';
+    $('turnoReportBody').innerHTML = html;
+    $('turnoReportModal').classList.remove('hidden');
+  }catch(e){ showError(errMsg(e),'RESOCONTO'); }
+}
+function closeTurnoReport(){ $('turnoReportModal').classList.add('hidden'); refocus(); }
+
+/* ---------- carico da pistola ---------- */
+function apriPistolaCarico(prod){
+  S.caricoProd = prod;
+  $('pCaricoInfo').textContent = prod.marca+' '+prod.nome+' - EAN:'+prod.code+' AAMS:'+prod.codice_aams+' LOG:'+prod.codice_logista;
+  $('pCaricoStock').textContent = 'Giacenza: '+prod.qty+' pz - Ult. carico: '+(prod.ultimo?fmtDate(prod.ultimo):'MAI')+' - Media: '+prod.media.toFixed(2)+'/gg - Copertura: '+fmtGG(prod);
+  $('pCaricoQty').value='';
+  $('pistolaCaricoModal').classList.remove('hidden');
+  setTimeout(apriNumpadCarico, 150);
+}
+function apriNumpadCarico(){
+  openNumpad({ label:'QUANTI PEZZI ARRIVATI?', validate:v=>parseInt(v)>0?null:'Inserisci una quantità maggiore di zero', onOk:v=>{ $('pCaricoQty').value=v; confermaPistolaCarico(); } });
+}
+function chiudiPistolaCarico(){ $('pistolaCaricoModal').classList.add('hidden'); S.caricoProd=null; const p=$('pistolaCarico'); if(p) p.value=''; refocus(); }
+async function confermaPistolaCarico(){
+  const qty=parseInt($('pCaricoQty').value); const prod=S.caricoProd;
+  if(!prod) return;
+  if(!qty||qty<=0){ showWarning('Devi inserire una quantità.','QUANTITÀ'); return; }
+  try{
+    const { data, error } = await supa.rpc('carica_giacenza', { p_barcode:prod.code, p_qty:qty });
+    if(error) throw error;
+    prod.qty = data; prod.ultimo = new Date().toISOString();
+    chiudiPistolaCarico(); render();
+    toast('CARICATO', '+'+qty+' → '+prod.marca+' '+prod.nome+' ('+data+' pz)');
+  }catch(e){ showError(errMsg(e),'CARICO'); }
+}
+
+/* ---------- nuovo prodotto / carico manuale ---------- */
+async function addNewProduct(){
+  const marca=$('newMarca').value.trim(), nome=$('newNome').value.trim();
+  const prezzo=num($('newPrezzo').value), qty=parseInt($('newQty').value);
+  const barcode=normCode($('newBarcode').value);
+  const aams=$('newCodAams2').value.trim(), log=$('newCodLog2').value.trim(), cat=$('newCat').value.trim().toUpperCase()||'KS';
+  if(!barcode){ showWarning('Il barcode è obbligatorio.\nSenza un codice scansionabile il prodotto non si può vendere.','DATI MANCANTI'); return; }
+  const ex = S.byCode.get(barcode) || (resolve([barcode]).prod);
+  try{
+    if(ex){
+      if(isNaN(qty)||qty<=0){ showWarning('Inserisci la quantità da aggiungere.','DATI MANCANTI'); return; }
+      if(!(await askConfirm('Il prodotto esiste già:\n'+ex.marca+' '+ex.nome+'\nGiacenza attuale: '+ex.qty+'\n\nAggiungere '+qty+' pezzi?',{title:'PRODOTTO ESISTENTE',ok:'AGGIUNGI'}))) return;
+      const { data, error } = await supa.rpc('carica_giacenza', { p_barcode:ex.code, p_qty:qty });
+      if(error) throw error;
+      ex.qty=data; ex.ultimo=new Date().toISOString();
+    } else {
+      if(!marca||!nome||isNaN(prezzo)||prezzo<=0||isNaN(qty)||qty<0){ showWarning('Compila marca, nome, prezzo (maggiore di 0) e quantità.','DATI MANCANTI'); return; }
+      const { error } = await supa.from(T).insert([{ barcode, marca, nome, prezzo, quantita:qty, codice_aams:aams||null, codice_logista:log||null, categoria:cat, data_ultimo_carico:new Date().toISOString(), media_giornaliera:0, scorta:20 }]);
+      if(error) throw error;
+    }
+    ['newMarca','newNome','newPrezzo','newQty','newBarcode','newCodAams2','newCodLog2','newCat'].forEach(i=>$(i).value='');
+    if(S.lastUnknown===barcode){ S.lastUnknown=null; renderUnknownHint(); }
+    await loadInventory(true);
+    toast('SALVATO', marca?marca+' '+nome:'Giacenza aggiornata');
+  }catch(e){
+    showError(e.code==='23505' ? 'Esiste già un prodotto con questo barcode.' : errMsg(e),'SALVATAGGIO');
+  }
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  renderCart(); renderOggi(); updateTurnoUI(); updateStatus();
+  if(S.tab==='cassa') renderCatalog();
+  if(S.tab==='carico'){ renderInvCarico(); renderUnknownHint(); }
+  if(S.tab==='report') renderReports();
+  if(S.tab==='mag') renderInv();
+  if(!$('scorteModal').classList.contains('hidden')) renderScorteModal();
+  if(!$('ordineModal').classList.contains('hidden')) renderOrdine();
+}
+
+function renderCatalog(){
+  const g=$('catalogoGrid'); if(!g) return;
+  const q=($('searchCatalogo').value||'').toLowerCase().trim();
+  let list=S.inv.filter(p=>p.qty>0); if(q) list=list.filter(p=>hay(p).includes(q));
+  $('countCatalogo').textContent = list.length+' prodotti';
+  g.innerHTML = list.slice(0,150).map(p=>`<div data-act="add" data-code="${esc(p.code)}" class="bg-slate-50 border rounded-xl p-3 cursor-pointer hover:bg-yellow-50 active:bg-yellow-100"><p class="font-bold text-[11px] uppercase">${esc(p.marca)} ${esc(p.nome)}</p><p class="font-mono text-[10px] text-slate-500">${eur(p.prezzo)} - ${p.qty} pz - ${fmtGG(p)}</p></div>`).join('')
+    + (list.length>150?'<p class="col-span-full text-center text-[11px] text-slate-500">Mostrati 150 su '+list.length+': usa la ricerca</p>':'');
+}
+
+function renderCart(){
+  const c=$('carrello'); let tot=0, pz=0;
+  S.carrello.forEach(it=>{ tot+=it.prezzo*it.qty; pz+=it.qty; });
+  c.innerHTML = S.carrello.length ? S.carrello.map((it,i)=>{
+    const inv=S.byCode.get(it.code), max=inv?inv.qty:0, over=it.qty>max;
+    return `<div class="bg-white/10 border ${over?'border-red-400':'border-white/10'} rounded-xl px-3 py-2.5 flex justify-between items-center gap-2">
+      <div class="flex-1 min-w-0"><p class="font-bold text-[12px] truncate">${esc(it.marca)} ${esc(it.nome)}</p><p class="font-mono text-[9px] ${over?'text-red-300':'text-slate-400'}">${over?'ATTENZIONE: disponibili '+max:'MAX '+max+' pz'} - ${esc(it.code)}</p></div>
+      <div class="flex items-center gap-1.5">
+        <button data-act="cartDec" data-i="${i}" class="chip bg-white/20 w-9 h-9 min-h-0 rounded-full font-black">−</button>
+        <button data-act="cartQty" data-i="${i}" class="chip bg-yellow-400 text-black border-2 border-yellow-500 rounded-full px-3 h-9 min-h-0 font-black text-[12px]">x${it.qty}</button>
+        <button data-act="cartInc" data-i="${i}" class="chip bg-white/20 w-9 h-9 min-h-0 rounded-full font-black">+</button>
+        <span class="font-bold text-[12px] w-16 text-right">${eur(it.prezzo*it.qty)}</span>
+        <button data-act="cartDel" data-i="${i}" class="chip bg-red-500/70 w-9 h-9 min-h-0 rounded-full text-[12px]">✕</button>
+      </div></div>`;
+  }).join('') : '<p class="opacity-40 text-center py-8 text-[12px]">Carrello vuoto - spara con la pistola</p>';
+  $('totale').textContent = eur(round2(tot)); $('pezziCarrello').textContent = pz+' pz';
+}
+
+function renderOggi(){
+  const att = S.oggi.filter(s=>!s.stornata);
+  const tot = att.reduce((a,s)=>a+Number(s.totale),0);
+  $('oggiTot').textContent = eur(tot);
+  $('listaOggi').innerHTML = S.oggi.slice(0,12).map(s=>`<div class="bg-slate-50 border rounded-xl px-3 py-2 flex justify-between gap-2 text-[11px] ${s.stornata?'opacity-50':''}"><span>${fmtTime(s.created_at)} ${s.pagamento==='carta'?'💳':'💶'} ${s.turno_nome?'<span class="bg-yellow-200 px-1.5 py-0.5 rounded text-[8px] font-black">'+esc(s.turno_nome)+'</span>':''}${s.stornata?' <b class="text-red-600">STORNATA</b>':''}</span><span class="font-bold ${s.stornata?'line-through':''}">${eur(s.totale)}</span></div>`).join('');
+}
+
+function invCard(p){
+  const st=statoProd(p), ult=p.ultimo?fmtDate(p.ultimo):'MAI';
+  return `<div class="bg-slate-50 border rounded-xl p-3 flex justify-between items-center gap-2">
+    <div class="min-w-0"><p class="font-bold text-[12px]">${esc(p.marca)} ${esc(p.nome)}</p>
+      <p class="font-mono text-[10px] text-slate-500 break-all">EAN:${esc(p.code)} AAMS:${esc(p.codice_aams)} LOG:${esc(p.codice_logista)} Scorta:${p.scorta}</p>
+      <p class="text-[10px] mt-1"><span class="${st.c} px-2 py-0.5 rounded-full font-black">${st.t} - ${fmtGG(p)}</span> <span class="ml-2 text-slate-500">Ult. carico: ${ult} - Media: ${p.media.toFixed(2)}/gg</span></p></div>
+    <div class="flex gap-1.5 items-center shrink-0">
+      <button data-act="setQty" data-code="${esc(p.code)}" class="chip bg-yellow-400 border-2 border-yellow-500 text-black px-3 h-11 min-h-0 rounded-xl font-black text-[12px]">✏️ ${p.qty}</button>
+      <button data-act="plus" data-code="${esc(p.code)}" class="chip w-10 h-10 min-h-0 bg-slate-900 text-white rounded-full font-bold">+</button>
+      <button data-act="minus" data-code="${esc(p.code)}" class="chip w-10 h-10 min-h-0 bg-white border-2 rounded-full font-bold">−</button>
+    </div></div>`;
+}
+const sortCopertura = (a,b)=>{ const ga=copertura(a), gb=copertura(b); return ga===gb?0:(ga<gb?-1:1); };
+function renderInv(){
+  const q=($('searchInv').value||'').toLowerCase().trim();
+  const list=S.inv.filter(p=>!q||hay(p).includes(q)).sort(sortCopertura);
+  $('inventoryList').innerHTML = list.slice(0,200).map(invCard).join('') + (list.length>200?'<p class="col-span-full text-center text-[11px] text-slate-500">Mostrati 200 su '+list.length+': usa la ricerca</p>':'');
+  $('totPezzi').textContent = S.inv.reduce((s,p)=>s+p.qty,0)+' pz';
+}
+function renderInvCarico(){
+  const q=($('searchInv2').value||'').toLowerCase().trim();
+  const list=S.inv.filter(p=>!q||hay(p).includes(q));
+  $('inventoryList2').innerHTML = list.slice(0,60).map(p=>`<div class="border rounded-xl p-2.5 flex justify-between gap-2 text-[11px] bg-slate-50"><span class="font-bold">${esc(p.marca)} ${esc(p.nome)} (${fmtGG(p)})</span><span class="bg-yellow-200 px-2 py-1 rounded-full font-black whitespace-nowrap">${p.qty} pz</span></div>`).join('');
+}
+
+/* ---------- scorte ---------- */
+function openScorteModal(){ $('scorteModal').classList.remove('hidden'); renderScorteModal(); }
+function closeScorteModal(){ $('scorteModal').classList.add('hidden'); refocus(); }
+function renderScorteModal(){
+  const q=($('searchScorte').value||'').toLowerCase().trim();
+  $('scorteList').innerHTML = S.inv.filter(p=>!q||hay(p).includes(q)).map(p=>`<div class="flex justify-between items-center bg-slate-50 border rounded-xl p-2 gap-2"><span class="text-[12px] font-bold">${esc(p.marca)} ${esc(p.nome)}</span><div class="flex items-center gap-1.5"><button data-act="scMinus" data-code="${esc(p.code)}" class="chip w-10 h-10 min-h-0 bg-white border-2 rounded-full font-black">−</button><button data-act="scEdit" data-code="${esc(p.code)}" class="chip w-14 h-10 min-h-0 bg-yellow-100 border-2 border-yellow-400 rounded-xl text-center font-black text-[13px]">${p.scorta}</button><button data-act="scPlus" data-code="${esc(p.code)}" class="chip w-10 h-10 min-h-0 bg-slate-900 text-white rounded-full font-black">+</button></div></div>`).join('');
+}
+async function setScorta(code, val){
+  const p=S.byCode.get(code); if(!p) return;
+  val=Math.max(0,Math.round(val)); if(val===p.scorta) return;
+  const old=p.scorta; p.scorta=val; renderScorteModal();
+  const { error } = await supa.from(T).update({ scorta:val }).eq('barcode', code);
+  if(error){ p.scorta=old; renderScorteModal(); showError(errMsg(error),'SCORTE'); }
+}
+
+/* ---------- cosa ordinare ---------- */
+function calcOrdine(){
+  const out=[];
+  for(const p of S.inv){
+    const diff=p.scorta-p.qty;
+    if(diff<=5) continue;
+    const maxStecche=Math.floor((p.scorta+5-p.qty)/10);
+    if(maxStecche<=0) continue;
+    const stecche=Math.min(Math.ceil(diff/10), maxStecche);
+    out.push({ p, diff, stecche, pezzi:stecche*10, finale:p.qty+stecche*10, gg:copertura(p) });
+  }
+  out.sort((a,b)=>{
+    if(a.gg!==b.gg) return a.gg<b.gg?-1:1;
+    return (a.p.ultimo?new Date(a.p.ultimo).getTime():0)-(b.p.ultimo?new Date(b.p.ultimo).getTime():0);
+  });
+  return out;
+}
+function openOrdineModal(){ $('ordineModal').classList.remove('hidden'); renderOrdine(); }
+function closeOrdineModal(){ $('ordineModal').classList.add('hidden'); refocus(); }
+function renderOrdine(){
+  const lista=calcOrdine();
+  const valore=lista.reduce((s,o)=>s+o.p.prezzo*o.pezzi,0);
+  $('ordineSummary').innerHTML = `<div class="bg-white border rounded-xl p-3 text-center"><p class="text-[10px] font-bold text-slate-500">DA ORDINARE</p><p class="font-black text-[18px]">${lista.length}</p></div><div class="bg-white border rounded-xl p-3 text-center"><p class="text-[10px] font-bold text-slate-500">STECCHE</p><p class="font-black text-[18px]">${lista.reduce((s,o)=>s+o.stecche,0)}</p></div><div class="bg-yellow-100 border rounded-xl p-3 text-center"><p class="text-[10px] font-bold">VALORE (prezzo vendita)</p><p class="font-black text-[18px]">${eur(valore)}</p></div>`;
+  $('ordineList').innerHTML = lista.length ? lista.map(o=>`<div class="bg-slate-50 border rounded-xl p-3 flex justify-between gap-2"><div class="min-w-0"><p class="font-bold text-[12px]">${esc(o.p.marca)} ${esc(o.p.nome)} <span class="bg-red-100 text-red-700 px-1.5 rounded text-[10px]">${fmtGG(o.p)} copertura</span></p><p class="font-mono text-[10px] text-slate-600 break-all">EAN:${esc(o.p.code)} AAMS:${esc(o.p.codice_aams)} LOG:${esc(o.p.codice_logista)} - Giac:${o.p.qty} Scorta:${o.p.scorta} → Finale:${o.finale} - Ult. carico:${o.p.ultimo?fmtDate(o.p.ultimo):'-'}</p></div><span class="bg-slate-900 text-white px-3 py-1 rounded-full text-[11px] font-bold h-fit whitespace-nowrap">${o.stecche} st</span></div>`).join('') : '<p class="text-center text-[12px] text-slate-400 py-6">Niente da ordinare.</p>';
+}
+function exportOrdineCSV(){
+  const rows=[['marca','nome','barcode','codice_aams','codice_logista','giacenza','scorta','mancanza','stecche','pezzi_ordinati','giacenza_finale','giorni_copertura','ultimo_carico','media_giornaliera','prezzo','valore']];
+  calcOrdine().forEach(o=>rows.push([o.p.marca,o.p.nome,o.p.code,o.p.codice_aams,o.p.codice_logista,o.p.qty,o.p.scorta,o.diff,o.stecche,o.pezzi,o.finale,Number.isFinite(o.gg)?o.gg.toFixed(1).replace('.',','):'INF',o.p.ultimo?fmtDate(o.p.ultimo):'',o.p.media.toFixed(2).replace('.',','),csvNum(o.p.prezzo),csvNum(o.p.prezzo*o.pezzi)]));
+  downloadCSV('ordine_'+localDay()+'.csv', rows);
+}
+
+/* ---------- report ---------- */
+async function loadReport(){
+  try{
+    const day=$('filterDate').value, pay=$('filterPay').value;
+    let q=supa.from('vendite').select('*').order('created_at',{ascending:false}).limit(500);
+    if(day){ const [a,b]=dayRange(day); q=q.gte('created_at',a).lt('created_at',b); }
+    if(pay) q=q.eq('pagamento',pay);
+    const [v,t]=await Promise.all([q, supa.from('turni_riepilogo').select('*').order('start_at',{ascending:false}).limit(30)]);
+    if(v.error) throw v.error; if(t.error) throw t.error;
+    S.reportRows=v.data||[]; S.turniRiep=t.data||[];
+    renderReports();
+  }catch(e){ showError(errMsg(e),'RESOCONTI'); }
+}
+function renderReports(){
+  const att=S.oggi.filter(s=>!s.stornata);
+  $('kpiOggi').textContent = eur(att.reduce((a,s)=>a+Number(s.totale),0));
+  $('kpiQtyOggi').textContent = att.reduce((a,s)=>a+(s.items||[]).reduce((x,i)=>x+i.qty,0),0);
+  const sp=m=>att.filter(s=>s.pagamento===m).reduce((a,s)=>a+Number(s.totale),0);
+  $('kpiPag').textContent = eur(sp('contanti'))+' / '+eur(sp('carta'));
+  $('kpiMagazzino').textContent = eur(S.inv.reduce((s,p)=>s+p.qty*p.prezzo,0));
+
+  $('turniReportList').innerHTML = S.turniRiep.length ? S.turniRiep.map(t=>`<div data-act="turno" data-id="${esc(t.id)}" class="bg-slate-50 border-2 border-slate-200 rounded-xl p-3 flex justify-between items-center cursor-pointer hover:bg-yellow-50 gap-2"><div><p class="font-black text-[13px]">${esc(t.nome)} <span class="font-mono text-[10px] text-slate-500">${fmtDT(t.start_at)}</span></p><p class="text-[11px] font-bold mt-1">${eur(t.incasso)} (💶 ${eur(t.contanti)} / 💳 ${eur(t.carta)}) - ${t.pezzi} pz - ${t.scontrini} scontrini</p></div>${t.end_at?'<span class="bg-slate-200 px-2 py-1 rounded-full text-[10px] font-bold whitespace-nowrap">CHIUSO '+fmtTime(t.end_at)+'</span>':'<span class="bg-emerald-500 text-white px-2 py-1 rounded-full text-[10px] font-black animate-pulse">APERTO</span>'}</div>`).join('') : '<p class="text-center text-[12px] text-slate-400 py-4">Nessun turno.</p>';
+
+  $('reportInfo').textContent = S.reportRows.length+' scontrini'+(S.reportRows.length>=500?' (mostrati i 500 più recenti: filtra per data)':'');
+  $('reportList').innerHTML = S.reportRows.map(v=>`<div class="bg-slate-50 border rounded-xl p-3 flex justify-between gap-3 ${v.stornata?'opacity-50':''}"><div class="min-w-0"><span class="font-mono text-[11px] bg-white border px-2 py-1 rounded-full">${fmtDT(v.created_at)}</span>${v.turno_nome?'<span class="bg-yellow-400 text-black px-2 py-0.5 rounded-full text-[9px] font-black ml-2">'+esc(v.turno_nome)+'</span>':''} ${v.pagamento==='carta'?'💳':'💶'}${v.stornata?' <span class="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-[9px] font-black">STORNATA</span>':''}<p class="text-[12px] font-bold mt-1 break-words">${esc((v.items||[]).map(i=>i.marca+' '+(i.nome||'')+' x'+i.qty).join(' - '))}</p></div><div class="text-right shrink-0"><div class="font-black text-[13px] ${v.stornata?'line-through':''}">${eur(v.totale)}</div>${v.stornata?'':'<button data-act="storna" data-id="'+esc(v.id)+'" class="chip mt-1 bg-white border-2 border-red-400 text-red-600 rounded-xl px-3 py-1 min-h-0 font-black text-[11px]">STORNA</button>'}</div></div>`).join('');
+}
+async function stornaVendita(id){
+  const v=S.reportRows.find(x=>x.id===id);
+  if(!(await askConfirm('Stornare lo scontrino'+(v?' di '+eur(v.totale)+' delle '+fmtTime(v.created_at):'')+'?\nI pezzi tornano a magazzino e l\'importo esce dagli incassi.',{title:'STORNO',ok:'STORNA',danger:true}))) return;
+  try{
+    const { error } = await supa.rpc('storna_vendita', { p_id:id });
+    if(error) throw error;
+    await Promise.all([loadInventory(true), loadTurno(), loadVenditeOggi(), loadMedie()]);
+    await loadReport(); toast('STORNATO','Scontrino annullato');
+  }catch(e){ showError(errMsg(e),'STORNO'); }
+}
+function exportCSV(){
+  const rows=[['data','ora','turno','pagamento','articoli','totale','stornata']];
+  S.reportRows.forEach(v=>rows.push([fmtDate(v.created_at),fmtTime(v.created_at),v.turno_nome||'',v.pagamento,(v.items||[]).map(i=>i.marca+' '+(i.nome||'')+' x'+i.qty+' ['+i.code+']').join(' | '),csvNum(v.totale),v.stornata?'SI':'']));
+  downloadCSV('vendite_'+localDay()+'.csv', rows);
+}
+function exportTurniCSV(){
+  const rows=[['nome','data','inizio','fine','fondo_cassa','incasso','contanti','carta','pezzi','scontrini','contanti_contati','differenza_cassa']];
+  S.turniRiep.forEach(t=>{ const att=Number(t.fondo_cassa)+Number(t.contanti); rows.push([t.nome,fmtDate(t.start_at),fmtTime(t.start_at),t.end_at?fmtTime(t.end_at):'',csvNum(t.fondo_cassa),csvNum(t.incasso),csvNum(t.contanti),csvNum(t.carta),t.pezzi,t.scontrini,t.contanti_contati!=null?csvNum(t.contanti_contati):'',t.contanti_contati!=null?csvNum(Number(t.contanti_contati)-att):'']); });
+  downloadCSV('turni_'+localDay()+'.csv', rows);
+}
+async function exportTurnoCSV(){
+  const id=S.reportTurnoId; if(!id) return exportTurniCSV();
+  try{
+    const { data, error } = await supa.from('vendite').select('*').eq('turno_id',id).order('created_at');
+    if(error) throw error;
+    const rows=[['data','ora','turno','pagamento','articoli','totale','stornata']];
+    data.forEach(v=>rows.push([fmtDate(v.created_at),fmtTime(v.created_at),v.turno_nome||'',v.pagamento,(v.items||[]).map(i=>i.marca+' x'+i.qty).join(' | '),csvNum(v.totale),v.stornata?'SI':'']));
+    downloadCSV('turno_'+(data[0]?.turno_nome||'')+'_'+localDay()+'.csv', rows);
+  }catch(e){ showError(errMsg(e),'CSV'); }
+}
+
+/* ---------- backup / ripristino / import ---------- */
+async function backupDati(){
+  try{
+    const inv=[]; let from=0;
+    for(;;){ const {data,error}=await supa.from(T).select('*').order('barcode').range(from,from+999); if(error) throw error; inv.push(...data); if(data.length<1000) break; from+=1000; }
+    const vend=[]; from=0;
+    for(;;){ const {data,error}=await supa.from('vendite').select('*').order('created_at').range(from,from+999); if(error) throw error; vend.push(...data); if(data.length<1000) break; from+=1000; }
+    const t=await supa.from('turni').select('*'); if(t.error) throw t.error;
+    downloadJSON('backup-bar-'+localDay()+'.json', { versione:15, creato:new Date().toISOString(), prodotti:inv, turni:t.data, vendite:vend });
+    toast('BACKUP CREATO', inv.length+' prodotti, '+vend.length+' scontrini', 2200);
+  }catch(e){ showError(errMsg(e),'BACKUP'); }
+}
+async function restoreDati(inp){
+  const f=inp.files[0]; if(!f) return; inp.value='';
+  try{
+    const o=JSON.parse(await f.text());
+    const src=o.prodotti||o.inventory; if(!Array.isArray(src)||!src.length) throw new Error('Il file non contiene prodotti');
+    const oldScorte=(o.scorte&&typeof o.scorte==='object'&&!Array.isArray(o.scorte))?o.scorte:{};
+    const rows=src.map(r=>{ const code=r.barcode??r.code; return {
+      barcode:code, marca:r.marca||'', nome:r.nome||'', prezzo:Number(r.prezzo)||0,
+      quantita:Math.max(0,parseInt(r.quantita??r.qty)||0),
+      codice_aams:r.codice_aams||null, codice_logista:r.codice_logista||null, categoria:r.categoria||'KS',
+      data_ultimo_carico:r.data_ultimo_carico||null,
+      scorta:Math.max(0,Math.round(Number(r.scorta??oldScorte[code]??20))||0) }; }).filter(r=>r.barcode);
+    const oldSales=Array.isArray(o.sales)?o.sales:[], oldTurni=Array.isArray(o.turni)&&o.sales?o.turni:[];
+    if(!(await askConfirm('Ripristinare il CATALOGO da questo file?\n'+rows.length+' prodotti verranno scritti (giacenze comprese; se un prodotto esiste già viene sovrascritto).'+(oldSales.length?'\n\nNel file ci sono anche '+oldSales.length+' vendite e '+oldTurni.length+' turni: te li chiedo dopo.':''),{title:'RIPRISTINA CATALOGO',ok:'RIPRISTINA',danger:true}))) return;
+    for(let i=0;i<rows.length;i+=200){ const {error}=await supa.from(T).upsert(rows.slice(i,i+200),{onConflict:'barcode'}); if(error) throw error; }
+    await loadInventory(true);
+    let extra='';
+    if(oldSales.length || oldTurni.length){
+      if(await askConfirm('Importare anche lo storico del file?\n• '+oldSales.length+' vendite\n• '+oldTurni.length+' turni\n\nSi può ripetere senza creare doppioni.',{title:'STORICO VENDITE',ok:'IMPORTA'})){
+        const r=await importaStorico(oldSales, oldTurni, {}); extra='\nStorico: '+r.nt+' turni e '+r.nv+' vendite importati.';
+      }
+    }
+    showSuccess('Catalogo ripristinato: '+rows.length+' prodotti.'+extra,'FATTO');
+  }catch(e){ showError(errMsg(e),'RIPRISTINO'); }
+}
+/* scrive nel database lo storico della vecchia versione (idempotente: si può ripetere) */
+async function importaStorico(oldSales, oldTurni, oldScorte){
+  const epoch=id=>(Number(id)>1e12?new Date(Number(id)).toISOString():null);
+  const turni=oldTurni.map(t=>({ nome:t.nome||'TURNO', start_at:t.startISO||epoch(t.id)||new Date().toISOString(), end_at:t.endISO||new Date().toISOString(), legacy_id:String(t.id) }));
+  const vendite=oldSales.map(s=>({ created_at:epoch(s.id)||new Date((s.date||localDay())+'T12:00:00').toISOString(), legacy_turno:s.turnoId!=null?String(s.turnoId):null, turno_nome:s.turnoNome||null, pagamento:s.payment==='carta'?'carta':'contanti', totale:Number(s.totale)||0, items:s.items||[], legacy_id:String(s.id) }));
+  let nt=0, nv=0, ns=0;
+  const r0=await supa.rpc('importa_storico',{p_turni:turni,p_vendite:[]}); if(r0.error) throw r0.error; nt+=r0.data.turni;
+  for(let i=0;i<vendite.length;i+=300){ const r=await supa.rpc('importa_storico',{p_turni:[],p_vendite:vendite.slice(i,i+300)}); if(r.error) throw r.error; nv+=r.data.vendite; }
+  for(const [code,val] of Object.entries(oldScorte||{})){ if(S.byCode.has(code)){ const {error}=await supa.from(T).update({scorta:Number(val)}).eq('barcode',code); if(!error) ns++; } }
+  await calcMedie(false); await refreshAll(false);
+  return { nt, nv, ns };
+}
+/* importa dalla memoria di QUESTO browser (funziona solo se la vecchia app girava su questo stesso indirizzo) */
+async function importaVecchiDati(){
+  const rd=(k,def)=>{ try{ const r=localStorage.getItem(k); return r===null?def:JSON.parse(r); }catch(e){ return def; } };
+  const oldSales=rd('bt_sales_v14',[]), oldTurni=rd('bt_turni_v14',[]), oldScorte=rd('bt_scorte_v14',{});
+  const nScorte=Object.keys(oldScorte).length;
+  if(!oldSales.length && !oldTurni.length && !nScorte){ showWarning('Su questo dispositivo non ci sono dati della vecchia versione.\nFai l\'import dal tablet di cassa che li usava, oppure usa RIPRISTINA CATALOGO con il file di backup.','NIENTE DA IMPORTARE'); return; }
+  if(!(await askConfirm('Trovati su questo dispositivo:\n• '+oldSales.length+' vendite\n• '+oldTurni.length+' turni\n• '+nScorte+' scorte\n\nImportarli nel database? Si può ripetere senza creare doppioni. Le giacenze non vengono modificate.',{title:'IMPORTA VECCHI DATI',ok:'IMPORTA'}))) return;
+  try{
+    const r=await importaStorico(oldSales, oldTurni, oldScorte);
+    showSuccess('Importati: '+r.nt+' turni, '+r.nv+' vendite, '+r.ns+' scorte.\nLe medie di rotazione sono state ricalcolate sullo storico.','IMPORT COMPLETATO');
+  }catch(e){ showError(errMsg(e),'IMPORT'); }
+}
+
+/* ---------- Ordini / carichi da PDF Logista ---------- */
+/* Il PDF dell'ordine contiene: riga, codice AAMS, descrizione, quantità in kg convenzionali.
+   NON contiene EAN né prezzo: le righe sconosciute si risolvono nella finestra guidata. */
+const MARCHE_COMPOSTE = ['BENSON&HEDGES','AL CAPONE','AMERICAN SPIRIT','ROTHMANS OF LONDON','PHILIP MORRIS','LUCKY STRIKE','GOLDEN VIRGINIA'];
+const aamsKey = c => stripZeros(normCode(c));
+const isCompleto = p => !!(String(p.marca||'').trim() && String(p.nome||'').trim() && p.prezzo > 0);
+const fmtKg = n => Number(n).toFixed(3).replace('.', ',');
+
+/* raggruppa i pezzi di testo per riga (stessa altezza) e li ordina da sinistra a destra */
+function righeDaItems(items){
+  const rows=[];
+  for(const it of items){
+    const s=String(it.str||'').trim(); if(!s || !it.transform) continue;
+    const x=it.transform[4], y=it.transform[5];
+    let r=rows.find(q=>Math.abs(q.y-y)<=2.5);
+    if(!r){ r={y,parts:[]}; rows.push(r); }
+    r.parts.push({x,s});
+  }
+  rows.sort((a,b)=>b.y-a.y);
+  return rows.map(r=>r.parts.sort((a,b)=>a.x-b.x).map(p=>p.s).join(' ').replace(/\s+/g,' ').trim());
+}
+function parseOrdineItems(pages){
+  const out={ righe:[], ordine:null, consegna:null, levata:null, totale:null };
+  let lines=[]; pages.forEach(p=>{ lines=lines.concat(righeDaItems(p)); });
+  for(const L of lines){
+    let m;
+    if((m=L.match(/Numero ordine\s+(\d+)/i))) out.ordine=m[1];
+    if((m=L.match(/Data Consegna\s+(\d{2})\.(\d{2})\.(\d{4})/i))) out.consegna=m[3]+'-'+m[2]+'-'+m[1];
+    if((m=L.match(/Tipo levata\s+(.+)$/i))) out.levata=m[1].trim();
+    if((m=L.match(/^Totale\s+(\d+,\d+)$/i))) out.totale=parseFloat(m[1].replace(',','.'));
+    if((m=L.match(/^(\d{1,3}) ([0-9A-Z]{1,8}) (.+) (\d+,\d{1,3})$/))){
+      out.righe.push({ riga:Number(m[1]), aams:m[2], descr:m[3].trim(), kgc:parseFloat(m[4].replace(',','.')) });
+    }
+  }
+  return out;
+}
+/* vecchio formato Logista (codice, descrizione con *, kg di fila) */
+function parseLogistaLegacy(pages){
+  let lines=[]; pages.forEach(items=>{ lines=lines.concat(items.map(it=>String(it.str||'').trim()).filter(s=>s.length>0)); });
+  const out=[];
+  for(let i=0;i<lines.length;i++){
+    const l=lines[i];
+    if(/^\d{1,5}$/.test(l) && lines[i+1] && lines[i+1].includes('*') && lines[i+2] && /^\d+,\d+$/.test(lines[i+2])){
+      out.push({ riga:out.length+1, aams:l, fullCode:l, code:l, descr:lines[i+1], kgc:parseFloat(lines[i+2].replace(',','.')), tipo:'AAMS' }); i+=2; continue;
+    }
+    if(/^\d{10}$/.test(l) && lines[i+1] && lines[i+2] && /^\d+,\d+$/.test(lines[i+2])){
+      out.push({ riga:out.length+1, aams:'', fullCode:l, code:l.slice(-8), descr:lines[i+1], kgc:parseFloat(lines[i+2].replace(',','.')), tipo:'LOGISTA' }); i+=2;
+    }
+  }
+  return out;
+}
+
+/* kg convenzionali -> pezzi. cert: ok (regola certa) | verifica (stima) | ignota (da inserire a mano) */
+function stimaPezzi(descr, kgc){
+  const d=String(descr).toUpperCase(); let kp=null, cert='ok', nota='', m;
+  if(/\*(AST|CART)\d*$/.test(d)) kp=0.02;                       /* 20 sigarette = 0,02 kg conv. */
+  else if((m=d.match(/\*(\d+)\s*GR$/))) kp=Number(m[1])/1000;   /* tabacco: grammi della confezione */
+  else if(/\*20PZ$/.test(d)) kp=0.02;                            /* bastoncini da 20 */
+  else if(/\*18PZ$/.test(d)){ kp=0.045; cert='verifica'; nota='stima: 0,045 kg a confezione'; }
+  else if(/\*(5|10)PZ$/.test(d)){ kp=0.05; cert='verifica'; nota='stima: 0,05 kg a confezione'; }
+  else { cert='ignota'; nota='formato non riconosciuto: inserisci i pezzi a mano'; }
+  let qty=0;
+  if(kp){ const raw=kgc/kp; qty=Math.round(raw); if(Math.abs(raw-qty)>0.01){ cert='verifica'; nota='i kg non sono un multiplo esatto'; } }
+  return { qty, kp, cert, nota };
+}
+/* proposta di marca / nome / categoria per un prodotto nuovo */
+function guessCampi(descr){
+  let d=String(descr).toUpperCase().trim(), categoria='KS', suffix='', m;
+  if((m=d.match(/\*(AST|CART)\d*$/))){ if(m[1]==='CART') suffix=' CART'; d=d.replace(/\*(AST|CART)\d*$/,''); }
+  else if((m=d.match(/\*(\d+\s*GR)$/))){ suffix=' '+m[1].replace(/\s+/g,''); categoria='TRINCIATO'; d=d.replace(/\*(\d+\s*GR)$/,''); }
+  else if((m=d.match(/\*(\d+PZ)$/))){ categoria='ALTRO'; d=d.replace(/\*(\d+PZ)$/,''); }
+  d=d.replace(/^[A-Z]{2,4}\d{4,}\s+/,'').trim();
+  let marca=null;
+  for(const mc of MARCHE_COMPOSTE){ if(d===mc || d.startsWith(mc+' ')){ marca=mc; break; } }
+  if(!marca) marca=d.split(' ')[0];
+  const nome=(d.slice(marca.length).trim()+suffix).trim() || d;
+  return { marca, nome, categoria };
+}
+const tokenize = s => String(s).toUpperCase().replace(/\*(AST|CART)\d*$/,' ').replace(/[^A-Z0-9 ]/g,' ').split(/\s+/).filter(t=>t.length>1);
+
+/* collega la riga al catalogo (solo per codice AAMS / alias, mai per somiglianza) */
+function risolviRiga(r){
+  let c=[];
+  if(r.forced && S.byCode.get(r.forced)) c=[S.byCode.get(r.forced)];
+  else if(r.tipo==='LOGISTA'){ const x=resolve([r.fullCode,r.code]); c = x.prod?[x.prod]:(x.ambiguous||[]); }
+  else c = (S.aamsIdx.get(aamsKey(r.aams)) || []).slice();
+  r.prod=null; r.cands=null;
+  if(c.length===1){ r.prod=c[0]; r.stato = isCompleto(c[0]) ? 'ok' : 'incompleto'; }
+  else if(c.length>1){ r.cands=c; r.stato='ambiguo'; }
+  else r.stato='nuovo';
+}
+
+async function sha256Hex(buf){
+  if(!(window.crypto && crypto.subtle)) return 'f'+buf.byteLength;
+  const h=await crypto.subtle.digest('SHA-256',buf); return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function handlePDF(input){
+  const file=input.files[0]; if(!file) return;
+  $('pdfStatus').textContent='Leggo il PDF...';
+  $('pdfPreview').classList.remove('hidden'); $('pdfPreview').innerHTML='<p class="text-[12px]">Lettura...</p>';
+  try{
+    const pdfjsLib=window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const buffer=await file.arrayBuffer();
+    S.pdfHash=await sha256Hex(buffer); S.pdfName=file.name;
+    const pdf=await pdfjsLib.getDocument({data:buffer.slice(0)}).promise;
+    const pages=[];
+    for(let i=1;i<=pdf.numPages;i++){ const page=await pdf.getPage(i); const content=await page.getTextContent(); pages.push(content.items); }
+    const info=parseOrdineItems(pages);
+    let rows=info.righe.map(r=>({...r, tipo:'ORDINE'}));
+    if(!rows.length) rows=parseLogistaLegacy(pages);
+    info.somma = rows.reduce((s,r)=>s+r.kgc,0);
+    S.pdfInfo=info;
+    S.pdf=rows.map(r=>{ const e=stimaPezzi(r.descr,r.kgc); const d={...r, qty:e.qty, kp:e.kp, cert:e.cert, nota:e.nota, qtyOk:e.cert==='ok'}; risolviRiga(d); return d; });
+    renderPdfPreview();
+    $('pdfActions').classList.toggle('hidden', !S.pdf.length);
+    $('pdfStatus').textContent = S.pdf.length ? ('Letto'+(info.ordine?' ordine n. '+info.ordine:'')+': '+S.pdf.length+' righe') : 'Nessuna riga riconosciuta nel PDF';
+    if(!S.pdf.length) showWarning('Non riesco a leggere righe da questo PDF.\nSe è un formato nuovo, mandamelo e lo aggiungo.','PDF');
+    else if(S.pdf.some(d=>d.stato!=='ok')) wizStart();
+  }catch(e){ $('pdfStatus').textContent='Errore: '+e.message; showError(e.message,'PDF'); }
+}
+
+function renderPdfPreview(){
+  const I=S.pdfInfo||{};
+  const pronte=S.pdf.filter(d=>d.stato==='ok').length, daRis=S.pdf.length-pronte;
+  const daVer=S.pdf.filter(d=>d.stato==='ok' && !d.qtyOk).length;
+  let h='';
+  if(I.ordine){
+    h+=`<div class="bg-slate-100 rounded-xl p-3 mb-2 text-[12px] font-bold">ORDINE n. ${esc(I.ordine)}${I.levata?' · '+esc(I.levata):''}${I.consegna?' · consegna '+fmtDate(I.consegna+'T12:00:00'):''}</div>`;
+    if(I.consegna && I.consegna>localDay()) h+=`<div class="bg-amber-100 border-2 border-amber-400 rounded-xl p-3 mb-2 text-[12px] font-black">⚠ Consegna prevista il ${fmtDate(I.consegna+'T12:00:00')}: carica le giacenze solo quando la merce è arrivata.</div>`;
+  }
+  if(I.totale!=null){
+    const ok=Math.abs(I.somma-I.totale)<0.0005;
+    h+=`<p class="text-[11px] font-bold mb-2 ${ok?'text-emerald-700':'text-red-600'}">Kg letti ${fmtKg(I.somma)} · totale del documento ${fmtKg(I.totale)} ${ok?'✓ coincidono':'⚠ NON coincidono: controlla le righe'}</p>`;
+  }
+  h+=`<p class="font-black text-[12px]">${S.pdf.length} righe: <span class="text-emerald-600">${pronte} pronte</span>${daRis?`, <span class="text-red-600">${daRis} da risolvere</span>`:''}${daVer?`, <span class="text-amber-600">${daVer} con quantità da verificare</span>`:''}</p>`;
+  if(daRis) h+=`<button data-act="wizStart" class="chip w-full my-2 bg-red-500 text-white rounded-xl py-3 font-black text-[13px]">RISOLVI LE ${daRis} RIGHE MANCANTI</button>`;
+  h+=S.pdf.map((d,i)=>{
+    const bg = d.stato!=='ok' ? 'bg-red-50' : (!d.qtyOk ? 'bg-amber-50' : '');
+    let st;
+    if(d.stato==='ok') st=`→ <b class="text-emerald-700">${esc(d.prod.marca+' '+d.prod.nome)}</b> <span class="text-slate-500">(giac. ${d.prod.qty})</span>`;
+    else if(d.stato==='incompleto') st=`<b class="text-amber-600">dati incompleti</b>: ${esc(d.prod.marca+' '+d.prod.nome)}`;
+    else if(d.stato==='ambiguo') st='<b class="text-red-600">più prodotti con questo codice</b>';
+    else st='<b class="text-red-600">non presente in catalogo</b>';
+    return `<div class="border-b py-2 text-[11px] flex justify-between gap-2 ${bg}"><div class="min-w-0"><b>${esc(d.aams||d.fullCode)}</b> ${esc(d.descr)}<br><span class="text-slate-500">${fmtKg(d.kgc)} kg${d.kp?' ÷ '+d.kp+' kg/pz':''}</span>${d.nota?' <b class="text-amber-600">'+esc(d.nota)+'</b>':''}<br>${st}</div><div class="flex flex-col gap-1 items-end shrink-0"><button data-act="pdfQty" data-i="${i}" class="chip ${d.qtyOk?'bg-yellow-200 border-yellow-400':'bg-amber-300 border-amber-500'} border-2 rounded-xl px-3 min-h-0 h-10 font-black whitespace-nowrap">${d.qty>0?d.qty:'?'} pz ✏️</button>${d.stato!=='ok'?`<button data-act="wizRow" data-i="${i}" class="chip bg-red-500 text-white rounded-xl px-3 min-h-0 h-9 font-black text-[11px] whitespace-nowrap">RISOLVI</button>`:''}</div></div>`;
+  }).join('');
+  $('pdfPreview').innerHTML=h;
+}
+
+/* ---------- finestra guidata: righe non riconosciute ---------- */
+const W = { queue:[], pos:0, mode:'scelta' };
+const wizRowCur = () => S.pdf[W.queue[W.pos]];
+function wizStart(){ W.queue=S.pdf.map((d,i)=>i).filter(i=>S.pdf[i].stato!=='ok'); W.pos=0; $('risolviModal').classList.remove('hidden'); wizGo(); }
+function wizRow(i){ W.queue=[i]; W.pos=0; $('risolviModal').classList.remove('hidden'); wizGo(); }
+function wizGo(){
+  while(W.pos<W.queue.length && S.pdf[W.queue[W.pos]].stato==='ok') W.pos++;
+  if(W.pos>=W.queue.length){ wizClose(); return; }
+  W.mode='scelta'; wizRender();
+}
+function wizClose(){ $('risolviModal').classList.add('hidden'); renderPdfPreview(); refocus(); }
+function wizSalta(){ W.pos++; wizGo(); }
+function wizMode(m){ W.mode=m; wizRender(); }
+function wizAfter(){ S.pdf.forEach(risolviRiga); wizGo(); }
+
+function wizRender(){
+  const r=wizRowCur(); if(!r){ wizClose(); return; }
+  $('wizProgress').textContent='Riga '+(W.pos+1)+' di '+W.queue.length+' da risolvere';
+  const info=`<div class="bg-slate-100 rounded-2xl p-4"><p class="font-black text-[17px] break-words">${esc(r.descr)}</p><p class="text-[13px] font-bold mt-1">${r.aams?'AAMS '+esc(r.aams)+' · ':''}${fmtKg(r.kgc)} kg → <span class="text-emerald-700">${r.qty>0?r.qty+' pezzi':'pezzi da inserire'}</span></p></div>`;
+  const btn=(act,txt,cls,extra='')=>`<button data-act="${act}" ${extra} class="w-full ${cls} rounded-2xl py-4 font-black text-[15px] mt-3">${txt}</button>`;
+  let h=info;
+  if(W.mode==='scelta'){
+    if(r.stato==='incompleto'){
+      h+=`<p class="mt-4 text-[14px] font-bold">Prodotto trovato, ma i dati non sono completi:<br><span class="font-black">${esc(r.prod.marca)} ${esc(r.prod.nome)} · prezzo ${eur(r.prod.prezzo)}</span></p>`;
+      h+=btn('wizMode','COMPLETA I DATI','bg-slate-900 text-white','data-m="crea"')+btn('wizSalta','SALTA QUESTA RIGA','bg-white border-2 border-slate-300');
+    } else if(r.stato==='ambiguo'){
+      h+='<p class="mt-4 text-[14px] font-bold">Più prodotti hanno questo codice AAMS. Quale è quello giusto?</p>';
+      h+=r.cands.map(p=>btn('wizUse',esc(p.marca+' '+p.nome)+' <span class="font-mono text-[11px]">'+esc(p.code)+'</span>','bg-slate-50 border-2 text-left','data-code="'+esc(p.code)+'"')).join('');
+      h+=btn('wizSalta','SALTA QUESTA RIGA','bg-white border-2 border-slate-300');
+    } else {
+      h+='<p class="mt-4 text-[14px] font-bold">Questo prodotto non è nel tuo catalogo. Cosa vuoi fare?</p>';
+      h+=btn('wizMode','🔗 ASSOCIA A UN PRODOTTO ESISTENTE','bg-slate-900 text-white','data-m="associa"');
+      h+=btn('wizMode','➕ CREA UN PRODOTTO NUOVO','bg-emerald-500 text-white','data-m="crea"');
+      h+=btn('wizSalta','SALTA QUESTA RIGA','bg-white border-2 border-slate-300');
+    }
+  } else if(W.mode==='associa'){
+    h+=`<p class="mt-4 text-[13px] font-bold">Scegli il prodotto già in catalogo: i pezzi verranno aggiunti a lui e l'app ricorderà il codice ${esc(r.aams)} per le prossime volte.</p>
+        <input id="wizSearch" oninput="wizRenderList()" placeholder="Cerca marca o nome..." class="mt-3 w-full border-2 rounded-2xl px-4 py-3 font-bold">
+        <div id="wizList" class="mt-3 space-y-2 max-h-[40vh] overflow-auto"></div>`+btn('wizBack','← INDIETRO','bg-white border-2 border-slate-300');
+  } else if(W.mode==='crea'){
+    const e=r.stato==='incompleto'?r.prod:null;
+    const g=e?{marca:e.marca,nome:e.nome,prezzo:e.prezzo>0?String(e.prezzo):'',categoria:e.categoria||'KS',log:e.codice_logista||''}:{...guessCampi(r.descr),prezzo:'',log:''};
+    const f=(id,label,val,extra='')=>`<label class="block"><span class="text-[11px] font-black text-slate-500">${label}</span><input id="${id}" value="${esc(val)}" ${extra} class="w-full border-2 rounded-2xl px-4 py-3 font-bold ${extra.includes('readonly')?'bg-yellow-50':''}"></label>`;
+    h+=`<p class="mt-4 font-black text-[15px]">${e?'COMPLETA I DATI DEL PRODOTTO':'NUOVO PRODOTTO'}</p><div class="grid grid-cols-2 gap-3 mt-2">
+      ${f('wMarca','MARCA *',g.marca)}${f('wNome','NOME *',g.nome)}
+      ${f('wPrezzo','PREZZO € *',g.prezzo,'readonly data-numpad="PREZZO €" data-decimal="1" placeholder="tocca"')}
+      ${f('wCat','CATEGORIA',g.categoria)}
+      <div class="col-span-2">${f('wBarcode','BARCODE EAN * (tocca e spara con la pistola)',e?e.code:'',(e?'readonly ':'')+'placeholder="codice a barre" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}"')}</div>
+      ${f('wAams','CODICE AAMS',r.aams||(e?e.codice_aams||'':''),r.aams?'readonly':'')}${f('wLog','COD. LOGISTA (facoltativo)',g.log)}
+    </div><div class="grid grid-cols-2 gap-3 mt-4"><button data-act="wizBack" class="bg-white border-2 border-slate-300 rounded-2xl py-4 font-black">← INDIETRO</button><button data-act="wizSalva" class="bg-emerald-500 text-white rounded-2xl py-4 font-black">SALVA E CONTINUA</button></div>`;
+  }
+  $('risolviBody').innerHTML=h;
+  if(W.mode==='associa') wizRenderList();
+}
+function wizRenderList(){
+  const r=wizRowCur(); const box=$('wizList'); if(!r||!box) return;
+  const q=($('wizSearch').value||'').toLowerCase().trim();
+  const tk=tokenize(r.descr);
+  const score=p=>{ const ht=tokenize(p.marca+' '+p.nome); return tk.filter(t=>ht.includes(t)).length; };
+  const list=S.inv.filter(p=>!q||hay(p).includes(q)).map(p=>({p,s:score(p)})).sort((a,b)=>b.s-a.s||a.p.marca.localeCompare(b.p.marca)).slice(0,40);
+  box.innerHTML=list.map(({p,s})=>`<button data-act="wizPick" data-code="${esc(p.code)}" class="w-full text-left ${s>0&&!q?'bg-yellow-50 border-yellow-400':'bg-slate-50'} border-2 rounded-xl p-3 min-h-0"><b class="text-[13px]">${esc(p.marca)} ${esc(p.nome)}</b><br><span class="text-[11px] text-slate-500">giac. ${p.qty} · ${eur(p.prezzo)}${p.codice_aams?' · AAMS '+esc(p.codice_aams):' · senza AAMS'}</span></button>`).join('') || '<p class="text-center text-[12px] text-slate-400 py-4">Nessun prodotto trovato</p>';
+}
+function wizUse(code){ const r=wizRowCur(); if(!r) return; r.forced=code; wizAfter(); }
+async function wizPick(code){
+  const r=wizRowCur(), p=S.byCode.get(code); if(!r||!p) return;
+  if(!r.aams){ r.forced=code; wizAfter(); return; }
+  let extra='';
+  if(p.codice_aams && aamsKey(p.codice_aams)!==aamsKey(r.aams)) extra='\n\nQuesto prodotto ha già il codice AAMS '+p.codice_aams+': il nuovo codice '+r.aams+' verrà aggiunto come codice alternativo.';
+  if(!(await askConfirm('Associare il codice AAMS '+r.aams+' a:\n'+p.marca+' '+p.nome+'\n\nCon questo carico +'+(r.qty>0?r.qty:'?')+' pezzi (ora '+p.qty+').'+extra,{title:'ASSOCIA PRODOTTO',ok:'ASSOCIA'}))) return;
+  try{
+    const { error } = await supa.rpc('associa_codice', { p_codice:r.aams, p_barcode:p.code });
+    if(error) throw error;
+    await loadInventory(true); wizAfter();
+  }catch(e){ showError(errMsg(e),'ASSOCIAZIONE'); }
+}
+async function wizSalva(){
+  const r=wizRowCur(); if(!r) return;
+  const e=r.stato==='incompleto'?r.prod:null;
+  const marca=$('wMarca').value.trim().toUpperCase(), nome=$('wNome').value.trim().toUpperCase();
+  const prezzo=num($('wPrezzo').value), cat=($('wCat').value.trim().toUpperCase())||'KS';
+  const aams=r.aams||$('wAams').value.trim().toUpperCase(), log=$('wLog').value.trim();
+  const barcode=e?e.code:normCode($('wBarcode').value);
+  if(!marca||!nome){ showWarning('Marca e nome sono obbligatori.','DATI MANCANTI'); return; }
+  if(isNaN(prezzo)||prezzo<=0||prezzo>=1000){ showWarning('Inserisci un prezzo valido (maggiore di 0).','DATI MANCANTI'); return; }
+  if(!e){
+    if(!/^[0-9A-Z]{4,20}$/.test(barcode)){ showWarning('Inserisci il barcode: tocca il campo e spara con la pistola (oppure scrivilo a mano).','DATI MANCANTI'); return; }
+    const gia=S.byCode.get(barcode)||resolve([barcode]).prod;
+    if(gia){ showWarning('Questo barcode esiste già:\n'+gia.marca+' '+gia.nome+'\n\nTorna indietro e usa ASSOCIA A UN PRODOTTO ESISTENTE.','BARCODE GIÀ PRESENTE'); return; }
+    if(!/^\d{8,14}$/.test(barcode) && !(await askConfirm('Il codice "'+barcode+'" non sembra un EAN (8-14 cifre).\nSe lo confermi, il prodotto non sarà leggibile con la pistola se il codice a barre sulla confezione è diverso.\n\nContinuare?',{title:'BARCODE INUSUALE',ok:'CONTINUA'}))) return;
+  }
+  try{
+    if(e){
+      const { error } = await supa.from(T).update({ marca, nome, prezzo, categoria:cat, codice_logista:log||e.codice_logista||null }).eq('barcode', e.code);
+      if(error) throw error;
+    } else {
+      const { error } = await supa.from(T).insert([{ barcode, marca, nome, prezzo, quantita:0, codice_aams:aams||null, codice_logista:log||null, categoria:cat, data_ultimo_carico:null, media_giornaliera:0, scorta:20 }]);
+      if(error) throw error;
+    }
+    await loadInventory(true); wizAfter();
+  }catch(err){ showError(err.code==='23505'?'Esiste già un prodotto con questo barcode.':errMsg(err),'SALVATAGGIO'); }
+}
+
+async function confermaCaricoPDF(){
+  S.pdf.forEach(risolviRiga);
+  const pronte=S.pdf.filter(d=>d.stato==='ok' && d.prod && d.qty>0 && d.qtyOk);
+  if(!pronte.length){ showWarning('Nessuna riga pronta da caricare.\nRisolvi le righe in rosso e conferma le quantità in giallo (tocca i pezzi).','PDF'); renderPdfPreview(); return; }
+  const I=S.pdfInfo||{}, nonPronte=S.pdf.length-pronte.length;
+  if(I.consegna && I.consegna>localDay()){
+    if(!(await askConfirm('Questo è un ORDINE con consegna prevista il '+fmtDate(I.consegna+'T12:00:00')+'.\nCaricarlo adesso aumenta le giacenze con merce che non è ancora arrivata.\n\nCaricare comunque?',{title:'MERCE NON ANCORA CONSEGNATA',ok:'CARICA COMUNQUE',danger:true}))) return;
+  }
+  if(nonPronte && !(await askConfirm(nonPronte+' righe NON verranno caricate (da risolvere o con quantità da verificare).\nProcedere con le altre '+pronte.length+'?',{title:'RIGHE NON CARICATE',ok:'PROCEDI'}))) return;
+  const righe=pronte.map(d=>({ barcode:d.prod.code, qty:d.qty }));
+  const chiave = I.ordine ? ('ODV'+I.ordine) : S.pdfHash;
+  try{
+    let { data, error } = await supa.rpc('carica_pdf', { p_hash:chiave, p_nome:S.pdfName, p_righe:righe, p_force:false });
+    if(error) throw error;
+    if(data.duplicato){
+      if(!(await askConfirm((I.ordine?'L\'ordine n. '+I.ordine:'Questo PDF')+' è già stato caricato il '+fmtDT(data.data)+'.\nCaricarlo di nuovo RADDOPPIA le giacenze.\n\nVuoi davvero ricaricarlo?',{title:'GIÀ CARICATO',ok:'CARICA DI NUOVO',danger:true}))) return;
+      ({ data, error } = await supa.rpc('carica_pdf', { p_hash:chiave, p_nome:S.pdfName, p_righe:righe, p_force:true }));
+      if(error) throw error;
+    }
+    await loadInventory(true);
+    annullaPDF(true); $('pdfStatus').textContent='Caricati '+data.caricati+' articoli';
+    showSuccess('Caricati '+data.caricati+' articoli'+(nonPronte?'\n('+nonPronte+' righe lasciate fuori)':'')+'.\nData ultimo carico aggiornata.','CARICO COMPLETATO');
+  }catch(e){ showError(errMsg(e),'PDF'); }
+}
+function annullaPDF(silent){
+  S.pdf=[]; S.pdfHash=null; S.pdfName=''; S.pdfInfo=null;
+  $('pdfPreview').classList.add('hidden'); $('pdfActions').classList.add('hidden');
+  if(silent!==true) $('pdfStatus').textContent='Annullato';
+  $('pdfInput').value='';
+}
+
+/* ---------- azioni dinamiche (event delegation) ---------- */
+const ACT = {
+  add: el => { S.lastCode=null; const p=S.byCode.get(el.dataset.code); if(p) addToCart(p); },
+  cartInc: el => { const i=+el.dataset.i; setCartQty(i, S.carrello[i].qty+1); },
+  cartDec: el => { const i=+el.dataset.i; setCartQty(i, S.carrello[i].qty-1); },
+  cartQty: el => editCartQty(+el.dataset.i),
+  cartDel: el => { S.carrello.splice(+el.dataset.i,1); cartChanged(); },
+  setQty: el => requireAdmin(()=>{
+    const p=S.byCode.get(el.dataset.code); if(!p) return;
+    openNumpad({ label:'GIACENZA CONTATA - '+p.marca, initial:String(p.qty), onOk: async v=>{
+      try{ const {data,error}=await supa.rpc('imposta_giacenza',{p_barcode:p.code,p_qty:parseInt(v)}); if(error) throw error; p.qty=data; render(); }
+      catch(e){ showError(errMsg(e),'GIACENZA'); }
+    }});
+  }),
+  plus: el => rettifica(el.dataset.code, 1),
+  minus: el => rettifica(el.dataset.code, -1),
+  scPlus: el => { const p=S.byCode.get(el.dataset.code); if(p) setScorta(p.code, p.scorta+1); },
+  scMinus: el => { const p=S.byCode.get(el.dataset.code); if(p) setScorta(p.code, p.scorta-1); },
+  scEdit: el => { const p=S.byCode.get(el.dataset.code); if(p) openNumpad({ label:'SCORTA - '+p.marca, initial:String(p.scorta), onOk:v=>setScorta(p.code, parseInt(v)) }); },
+  turno: el => apriResocontoTurno(el.dataset.id),
+  storna: el => requireAdmin(()=>stornaVendita(el.dataset.id), 'STORNO'),
+  pdfQty: el => { const d=S.pdf[+el.dataset.i]; if(d) openNumpad({ label:'PEZZI - '+d.descr, initial:d.qty>0?String(d.qty):'', validate:v=>parseInt(v)>=0?null:'Quantità non valida', onOk:v=>{ d.qty=parseInt(v); d.qtyOk=true; renderPdfPreview(); } }); },
+  wizStart: () => wizStart(),
+  wizRow: el => wizRow(+el.dataset.i),
+  wizMode: el => wizMode(el.dataset.m),
+  wizSalta: () => wizSalta(),
+  wizPick: el => wizPick(el.dataset.code),
+  wizUse: el => wizUse(el.dataset.code),
+  wizSalva: () => wizSalva(),
+  wizBack: () => { W.mode='scelta'; wizRender(); },
+  wizClose: () => wizClose(),
+  useUnknown: () => { if(S.lastUnknown){ $('newBarcode').value=S.lastUnknown; $('newMarca').focus(); } }
+};
+async function rettifica(code, delta){
+  const p=S.byCode.get(code); if(!p) return;
+  try{ const {data,error}=await supa.rpc('rettifica_giacenza',{p_barcode:code,p_delta:delta}); if(error) throw error; p.qty=data; render(); }
+  catch(e){ showError(errMsg(e),'GIACENZA'); }
+}
+document.addEventListener('click', e=>{
+  const el=e.target.closest('[data-act]'); if(!el) return;
+  const fn=ACT[el.dataset.act]; if(!fn) return;
+  try{ fn(el); }catch(err){ showError(errMsg(err)); }
+});
+
+/* ---------- tab ---------- */
+function openTab(n){
+  if(PROTECTED.includes(n)) requireAdmin(()=>_showTab(n), n.toUpperCase());
+  else _showTab(n);
+}
+function _showTab(n){
+  S.tab=n;
+  document.querySelectorAll('.tab-page').forEach(e=>e.classList.add('hidden'));
+  $('tab-'+n)?.classList.remove('hidden');
+  document.querySelectorAll('[id^="b-"]').forEach(b=>{ b.className='bg-white border-2 px-5 rounded-xl font-bold text-[12px]'; });
+  const btn=$('b-'+n); if(btn) btn.className='bg-slate-900 text-white px-5 rounded-xl font-bold text-[12px]';
+  if(n==='report') loadReport();
+  render(); refocus();
+}
+
+/* ---------- avvio ---------- */
+window.addEventListener('DOMContentLoaded', async ()=>{
+  $('filterDate').value = localDay();
+  $('pistolaCassa').addEventListener('keydown', e=>{ if(e.key==='Enter'){ handleScan(e.target.value,'cassa'); e.target.value=''; } });
+  $('pistolaCarico').addEventListener('keydown', e=>{ if(e.key==='Enter'){ handleScan(e.target.value,'carico'); e.target.value=''; } });
+  $('manualCode').addEventListener('keydown', e=>{ if(e.key==='Enter') manualAdd(); });
+  setPay('contanti'); render();
+  try{
+    if(await checkSchema()){ await refreshAll(false); maybeAutoSync(); }
+  }catch(e){ S.online=false; updateStatus(); showError('Nessuna connessione al database:\n'+errMsg(e),'CONNESSIONE'); }
+  setInterval(refreshLive, POLL_MS);
+  setInterval(()=>{ if(!document.hidden) loadMedie().then(render); }, MEDIE_MS);
+  refocus();
+});
+</script>
+</body>
+</html>

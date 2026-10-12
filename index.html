@@ -25,6 +25,143 @@ try{
     window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js?v='+APP_VERSION).catch(()=>{});});
   }
 }catch(e){}
+/* ============================================================
+   SPARA BARCODE: import guidato prodotti (tab CARICO)
+   Riusa: supa, T, S, openNumpad, askConfirm, showSuccess/showError,
+          mapRow, buildIndex, applyMedie, render, loadInventory, aamsKey
+   ============================================================ */
+const SB = { items:[], ignorate:[], pos:0, imp:0, esauriti:0, dup:0, cur:null, barcode:null, esaurito:false, prezzo:0, busy:false, active:false };
+
+function sbParse(text){
+  const lines = String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const items=[], ignorate=[]; let pending=null;
+  const push=(aams,nome)=>{ nome=nome.replace(/\s+/g,' ').trim(); if(nome) items.push({aams,nome}); else ignorate.push(aams); };
+  for(const l of lines){
+    let m;
+    if((m=l.match(/^(\d{1,8})\s+(\S.*)$/))){ if(pending){ ignorate.push(pending); pending=null; } push(m[1],m[2]); }
+    else if(/^\d{1,8}$/.test(l)){ if(pending) ignorate.push(pending); pending=l; }
+    else if(pending){ push(pending,l); pending=null; }
+    /* altre righe senza codice (intestazioni): ignorate */
+  }
+  if(pending) ignorate.push(pending);
+  return { items, ignorate };
+}
+function sbPreview(){
+  const r=sbParse($('sbText').value);
+  $('sbPreview').textContent = r.items.length ? (r.items.length+' prodotti riconosciuti'+(r.ignorate.length?' · '+r.ignorate.length+' codici senza nome ignorati ('+r.ignorate.join(', ')+')':'')) : '';
+}
+function sbStep(id){ ['sbLista','sbProdotto','sbPrezzoBox'].forEach(x=>$(x).classList.toggle('hidden', x!==id)); }
+function sbNote(msg){ const n=$('sbNote'); if(msg){ n.textContent=msg; n.classList.remove('hidden'); } else n.classList.add('hidden'); }
+function sbErr(msg){ const n=$('sbErr'); if(msg){ n.textContent=msg; n.classList.remove('hidden'); } else n.classList.add('hidden'); }
+function sbFocus(){ setTimeout(()=>{ const i=$('sbBarcode'); if(i && !$('sbProdotto').classList.contains('hidden')) i.focus(); }, 80); }
+
+function sbOpen(){
+  SB.active=false; SB.items=[]; SB.pos=0;
+  $('sbText').value=''; $('sbPreview').textContent=''; $('sbProgress').textContent='Incolla la lista';
+  sbStep('sbLista'); $('sbModal').classList.remove('hidden');
+}
+function sbHide(){ $('sbModal').classList.add('hidden'); SB.active=false; refocus(); }
+async function sbClose(){
+  if(SB.active){
+    if(!(await askConfirm('Interrompere l\'importazione?\nI prodotti già salvati restano nel catalogo.',{title:'INTERROMPI',ok:'INTERROMPI',danger:true}))) return;
+    sbHide(); loadInventory(true); return;
+  }
+  sbHide();
+}
+async function sbStart(){
+  const r=sbParse($('sbText').value);
+  if(!r.items.length){ showWarning('Nessun prodotto riconosciuto.\nFormato: 807 MALBORO ROSSO (codice AAMS + nome).','LISTA VUOTA'); return; }
+  await loadInventory(true);           /* catalogo fresco prima del controllo duplicati */
+  if(!S.loaded){ showError('Catalogo non caricato: controlla la connessione e riprova.','CONNESSIONE'); return; }
+  Object.assign(SB,{ items:r.items, ignorate:r.ignorate, pos:0, imp:0, esauriti:0, dup:0, cur:null, barcode:null, esaurito:false, active:true, busy:false });
+  sbNote(null); sbNext();
+}
+function sbAamsExists(aams){ return S.aamsIdx.has(aamsKey(aams)); }
+
+function sbNext(){
+  while(SB.pos < SB.items.length){
+    const it = SB.items[SB.pos];
+    if(sbAamsExists(it.aams)){ SB.dup++; SB.pos++; sbNote('Prodotto già presente: '+it.aams+' '+it.nome); toast('PRODOTTO GIÀ PRESENTE', it.nome, 1000); continue; }
+    SB.cur = it; SB.barcode=null; SB.esaurito=false; SB.prezzo=0;
+    sbShowProduct(); return;
+  }
+  sbFine();
+}
+function sbShowProduct(){
+  const it=SB.cur; if(!it) return;
+  SB.esaurito=false; SB.barcode=null;
+  $('sbProgress').textContent='Prodotto '+(SB.pos+1)+' di '+SB.items.length;
+  $('sbNome').textContent=it.nome; $('sbAams').textContent=it.aams;
+  $('sbBarcode').value=''; sbErr(null);
+  sbStep('sbProdotto'); sbFocus();
+}
+function sbContinua(){
+  const it=SB.cur; if(!it) return;
+  const code=normCode($('sbBarcode').value);
+  if(code.length<4){ sbErr('Barcode non valido: spara di nuovo il codice.'); $('sbBarcode').value=''; sbFocus(); return; }
+  if(S.byCode.has(code)){
+    const p=S.byCode.get(code);
+    SB.dup++; SB.pos++; sbNote('Prodotto già presente (barcode '+code+'): '+p.marca+' '+p.nome);
+    toast('PRODOTTO GIÀ PRESENTE', p.nome, 1200); sbNext(); return;
+  }
+  SB.barcode=code; SB.esaurito=false; sbPrezzo();
+}
+function sbEsaurito(){
+  const it=SB.cur; if(!it) return;
+  const code='NOBARCODE_'+it.aams;
+  if(S.byCode.has(code)){ SB.dup++; SB.pos++; sbNote('Prodotto già presente: '+code); toast('PRODOTTO GIÀ PRESENTE', it.nome, 1200); sbNext(); return; }
+  SB.barcode=code; SB.esaurito=true; sbPrezzo();
+}
+function sbPrezzo(){
+  const it=SB.cur; if(!it||!SB.barcode) return;
+  $('sbNome2').textContent=it.nome; $('sbAams2').textContent=it.aams; $('sbBc2').textContent=SB.barcode+(SB.esaurito?' (esaurito, quantità 0)':'');
+  sbStep('sbPrezzoBox');
+  openNumpad({ label:'PREZZO € - '+it.nome, decimal:true,
+    validate:v=>{ const n=num(v); return (isNaN(n)||n<=0||n>=1000)?'Inserisci un prezzo valido (maggiore di 0)':null; },
+    onOk:v=>{ SB.prezzo=num(v); if(SB.esaurito) sbSalva(0); else sbQuantita(); } });
+}
+function sbQuantita(){
+  const it=SB.cur; if(!it) return;
+  openNumpad({ label:'QUANTITÀ DISPONIBILE - '+it.nome,
+    validate:v=>{ const n=parseInt(v); return (isNaN(n)||n<0)?'Quantità non valida':null; },
+    onOk:v=>sbSalva(parseInt(v)) });
+}
+async function sbSalva(qty){
+  const it=SB.cur; if(!it||!SB.barcode||SB.busy) return;
+  SB.busy=true;
+  const row={ barcode:SB.barcode, marca:'', nome:it.nome, prezzo:SB.prezzo, quantita:qty, codice_aams:it.aams, codice_logista:null,
+              categoria:'TABACCHI', data_ultimo_carico:(qty>0?new Date().toISOString():null), media_giornaliera:0, scorta:20 };
+  try{
+    const { error } = await supa.from(T).insert([row]);
+    if(error){
+      if(error.code==='23505'){ SB.dup++; SB.pos++; sbNote('Prodotto già presente: '+it.aams+' '+it.nome); SB.busy=false; await loadInventory(true); sbNext(); return; }
+      throw error;
+    }
+    /* aggiorna subito catalogo locale (S.inv, S.byCode, indici) */
+    const p=mapRow(row); S.inv.push(p); S.byCode.set(p.code,p); buildIndex(); applyMedie(); render();
+    if(SB.esaurito) SB.esauriti++; else SB.imp++;
+    SB.pos++; sbNote('Salvato: '+it.nome+' ('+qty+' pz)');
+    SB.busy=false; sbNext();
+  }catch(e){
+    SB.busy=false;
+    showError(errMsg(e),'SALVATAGGIO');   /* si resta sulla schermata: riprova con INSERISCI PREZZO */
+  }
+}
+async function sbFine(){
+  const msg='Prodotti importati: '+SB.imp+'\nProdotti saltati: '+SB.esauriti+'\nProdotti duplicati: '+SB.dup
+    +(SB.ignorate.length?'\n\nCodici senza nome ignorati: '+SB.ignorate.join(', '):'');
+  sbHide();
+  await loadInventory(true);
+  showSuccess(msg,'IMPORTAZIONE COMPLETATA');
+}
+
+/* eventi (delegation separata: non tocca ACT) */
+document.addEventListener('click', e=>{
+  const el=e.target.closest('[data-sb]'); if(!el) return;
+  const fn={ open:sbOpen, close:sbClose, start:sbStart, continua:sbContinua, esaurito:sbEsaurito, prezzo:sbPrezzo, back:sbShowProduct }[el.dataset.sb];
+  if(fn) fn();
+});
+$('sbBarcode').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sbContinua(); } });
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -209,7 +346,54 @@ input,select,textarea{min-height:58px;font-size:18px}
     </div>
   </div>
 </div>
+<!-- SPARA BARCODE (import guidato) -->
+<div id="sbModal" class="modal hidden fixed inset-0 bg-black/70 z-[260] flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl max-w-[640px] w-full max-h-[92vh] flex flex-col">
+    <div class="p-5 border-b flex justify-between items-center">
+      <div><h3 class="font-black text-[18px]">SPARA BARCODE</h3><p id="sbProgress" class="text-[12px] text-slate-500">Incolla la lista</p></div>
+      <button data-sb="close" class="w-10 h-10 min-h-0 bg-slate-100 rounded-full font-black">×</button>
+    </div>
+    <div class="p-5 overflow-auto flex-1">
 
+      <!-- STEP 1: lista -->
+      <div id="sbLista">
+        <p class="text-[13px] font-bold text-slate-600">Incolla la lista: <span class="font-mono">807 MALBORO ROSSO</span> (codice AAMS + nome), una riga per prodotto. Va bene anche codice e nome su due righe.</p>
+        <textarea id="sbText" oninput="sbPreview()" rows="10" placeholder="807 MALBORO ROSSO&#10;808 MALBORO GOLD" class="mt-3 w-full border-2 rounded-2xl px-4 py-3 font-mono text-[14px]"></textarea>
+        <p id="sbPreview" class="mt-2 text-[12px] font-bold text-slate-500"></p>
+        <button data-sb="start" class="w-full mt-4 bg-emerald-500 text-white rounded-2xl py-4 font-black text-[16px]">AVVIA IMPORTAZIONE</button>
+      </div>
+
+      <!-- STEP 2: barcode -->
+      <div id="sbProdotto" class="hidden">
+        <p id="sbNote" class="hidden mb-3 bg-amber-100 border-2 border-amber-400 rounded-xl p-3 text-[12px] font-black"></p>
+        <div class="bg-slate-100 rounded-2xl p-4">
+          <p class="text-[11px] font-bold text-slate-500">PRODOTTO</p>
+          <p id="sbNome" class="font-black text-[24px] break-words leading-tight"></p>
+          <p class="text-[14px] font-bold mt-1">AAMS: <span id="sbAams"></span></p>
+        </div>
+        <label class="block mt-4 font-black text-[15px]">Scansiona il barcode</label>
+        <input id="sbBarcode" inputmode="none" autocomplete="off" placeholder="SPARA IL CODICE" class="mt-2 w-full border-4 border-orange-400 rounded-2xl px-4 py-4 font-mono font-black text-[22px] text-center bg-yellow-50 outline-none">
+        <p id="sbErr" class="hidden mt-2 text-[12px] font-black text-red-600"></p>
+        <div class="grid grid-cols-1 gap-3 mt-4">
+          <button data-sb="continua" class="bg-slate-900 text-white rounded-2xl py-4 font-black text-[15px]">CONTINUA</button>
+          <button data-sb="esaurito" class="bg-white border-2 border-slate-900 rounded-2xl py-4 font-black text-[14px]">SALTA BARCODE (ARTICOLO ESAURITO)</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: prezzo / quantità (se il numpad viene chiuso, si riapre da qui) -->
+      <div id="sbPrezzoBox" class="hidden">
+        <div class="bg-slate-100 rounded-2xl p-4">
+          <p id="sbNome2" class="font-black text-[22px] break-words leading-tight"></p>
+          <p class="text-[13px] font-bold mt-1">AAMS: <span id="sbAams2"></span></p>
+          <p class="font-mono text-[13px] mt-1 break-all">Barcode: <span id="sbBc2"></span></p>
+        </div>
+        <button data-sb="prezzo" class="w-full mt-4 bg-emerald-500 text-white rounded-2xl py-4 font-black text-[16px]">INSERISCI PREZZO</button>
+        <button data-sb="back" class="w-full mt-3 bg-white border-2 border-slate-300 rounded-2xl py-4 font-black text-[14px]">← TORNA AL BARCODE</button>
+      </div>
+
+    </div>
+  </div>
+</div>
 <main class="max-w-[1600px] mx-auto p-4 md:p-6 pb-28">
 
   <!-- ===== CASSA ===== -->
@@ -266,6 +450,7 @@ input,select,textarea{min-height:58px;font-size:18px}
           <p class="text-[13px] text-slate-500 mt-2">Scansiona il prodotto, inserisci i pezzi arrivati. Aggiorna la data ultimo carico.</p>
           <div class="mt-4 bg-black rounded-2xl p-4 border-2 border-orange-400"><input id="pistolaCarico" inputmode="none" autocomplete="off" placeholder="SPARA IL CODICE" class="w-full bg-zinc-900 text-white border-2 border-orange-400 rounded-2xl px-5 py-5 font-mono font-black text-[22px] text-center outline-none"></div>
           <div id="unknownHint" class="hidden mt-4"></div>
+          <button data-sb="open" class="w-full mt-4 bg-orange-400 text-black border-2 border-black rounded-2xl py-4 font-black text-[15px]">📥 SPARA BARCODE</button>
         </div>
         <div class="bg-slate-900 text-white rounded-3xl p-6">
           <h2 class="font-black text-[18px]">ORDINI / CARICO DA PDF LOGISTA</h2>

@@ -240,26 +240,26 @@ input,select,textarea{min-height:58px;font-size:18px}
 
 <!-- NUMPAD UNICO -->
 <div id="customNumpad" class="modal hidden fixed inset-0 z-[300] bg-black/70 flex items-end justify-center p-3" onclick="if(event.target.id==='customNumpad') closeNumpad()">
-  <div class="bg-white rounded-[28px] w-full max-w-[500px] p-5 shadow-2xl border-4 border-black">
-    <div class="flex justify-between items-center mb-4"><span id="numpadLabel" class="font-black text-[18px]">QUANTITÀ</span><button onclick="closeNumpad()" class="w-12 h-12 min-h-0 bg-slate-100 rounded-full font-black text-xl">×</button></div>
-    <div id="numpadDisplay" class="bg-black text-yellow-300 rounded-2xl p-5 text-[52px] font-black text-center font-mono mb-4 tracking-widest min-h-[96px] break-all">0</div>
-    <div class="grid grid-cols-3 gap-3">
-      <button onclick="numpadPress('1')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">1</button>
-      <button onclick="numpadPress('2')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">2</button>
-      <button onclick="numpadPress('3')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">3</button>
-      <button onclick="numpadPress('4')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">4</button>
-      <button onclick="numpadPress('5')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">5</button>
-      <button onclick="numpadPress('6')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">6</button>
-      <button onclick="numpadPress('7')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">7</button>
-      <button onclick="numpadPress('8')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">8</button>
-      <button onclick="numpadPress('9')" class="bg-slate-100 rounded-2xl py-7 font-black text-[30px]">9</button>
-      <button onclick="numpadClear()" class="bg-red-500 text-white rounded-2xl py-7 font-black text-[20px]">C</button>
-      <button onclick="numpadPress('0')" class="bg-slate-900 text-white rounded-2xl py-7 font-black text-[30px]">0</button>
-      <button onclick="numpadDel()" class="bg-orange-400 rounded-2xl py-7 font-black text-[26px]">⌫</button>
+  <div class="bg-white rounded-[28px] w-full max-w-[500px] max-h-[100dvh] overflow-y-auto p-3 sm:p-5 shadow-2xl border-4 border-black">
+    <div class="flex justify-between items-center mb-2 sm:mb-4"><span id="numpadLabel" class="font-black text-[18px]">QUANTITÀ</span><button onclick="closeNumpad()" class="w-12 h-12 min-h-0 bg-slate-100 rounded-full font-black text-xl">×</button></div>
+    <div id="numpadDisplay" class="bg-black text-yellow-300 rounded-2xl p-3 sm:p-5 text-[34px] sm:text-[52px] font-black text-center font-mono mb-3 tracking-widest min-h-[56px] sm:min-h-[96px] break-all">0</div>
+    <div class="grid grid-cols-3 gap-2 sm:gap-3">
+      <button onclick="numpadPress('1')" class="bg-slate-100 rounded-2xl py-3 sm:py-6 font-black text-[24px] sm:text-[30px]">1</button>
+      <button onclick="numpadPress('2')" class="bg-slate-100 rounded-2xl py-3 sm:py-6 font-black text-[24px] sm:text-[30px]">2</button>
+      <button onclick="numpadPress('3')" class="bg-slate-100 rounded-2xl py-3 sm:py-6 font-black text-[24px] sm:text-[30px]">3</button>
+      <button onclick="numpadPress('4')" class="bg-slate-100 rounded-2xl py-3 sm:py-6 font-black text-[24px] sm:text-[30px]">4</button>
+      <button onclick="numpadPress('5')" class="bg-slate-100 rounded-2xl py-3 sm:py-6 font-black text-[24px] sm:text-[30px]">5</button>
+      <button onclick="numpadPress('6')" class="bg-slate-100 rounded-2xl py-3 sm:py-6 font-black text-[24px] sm:text-[30px]">6</button>
+      <button onclick="numpadPress('7')" class="bg-slate-100 rounded-2xl py-3 sm:py-6 font-black text-[24px] sm:text-[30px]">7</button>
+      <button onclick="numpadPress('8')" class="bg-slate-100 rounded-2xl py-3 sm:py-6 font-black text-[24px] sm:text-[30px]">8</button>
+      <button onclick="numpadPress('9')" class="bg-slate-100 rounded-2xl py-3 sm:py-6 font-black text-[24px] sm:text-[30px]">9</button>
+      <button onclick="numpadClear()" class="bg-red-500 text-white rounded-2xl py-3 sm:py-6 font-black text-[18px] sm:text-[20px]">C</button>
+      <button onclick="numpadPress('0')" class="bg-slate-900 text-white rounded-2xl py-3 sm:py-6 font-black text-[24px] sm:text-[30px]">0</button>
+      <button onclick="numpadDel()" class="bg-orange-400 rounded-2xl py-3 sm:py-6 font-black text-[22px] sm:text-[26px]">⌫</button>
     </div>
     <div class="grid grid-cols-2 gap-3 mt-4">
-      <button id="numpadDot" onclick="numpadPress('.')" class="bg-white border-2 rounded-2xl py-5 font-black text-[28px]">,</button>
-      <button id="numpadOkBtn" onclick="numpadOk()" class="bg-emerald-500 text-white rounded-2xl py-5 font-black text-[22px]">OK</button>
+      <button id="numpadDot" onclick="numpadPress('.')" class="bg-white border-2 rounded-2xl py-3 sm:py-5 font-black text-[24px] sm:text-[28px]">,</button>
+      <button id="numpadOkBtn" onclick="numpadOk()" class="bg-emerald-500 text-white rounded-2xl py-3 sm:py-5 font-black text-[20px] sm:text-[22px]">OK</button>
     </div>
   </div>
 </div>
@@ -649,7 +649,7 @@ function openNumpad({label, initial='', decimal=false, maxLen=8, mask=false, all
   NP = { buf:String(initial ?? ''), decimal, maxLen, mask, allowEmpty, validate, onOk };
   $('numpadLabel').textContent = label || 'INSERISCI NUMERO';
   $('numpadDot').classList.toggle('hidden', !decimal);
-  $('numpadOkBtn').parentElement.className = decimal ? 'grid grid-cols-2 gap-3 mt-4' : 'grid grid-cols-1 gap-3 mt-4';
+  $('numpadOkBtn').parentElement.className = decimal ? 'grid grid-cols-2 gap-2 mt-2' : 'grid grid-cols-1 gap-2 mt-2';
   npRender(); $('customNumpad').classList.remove('hidden');
 }
 function npRender(){
@@ -661,7 +661,8 @@ function numpadPress(d){
   if(!NP) return;
   if(d==='.'){ if(!NP.decimal || NP.buf.includes('.')) return; if(NP.buf==='') NP.buf='0'; }
   if(NP.buf.length >= NP.maxLen) return;
-  if(NP.buf==='0' && d!=='.') NP.buf = d; else NP.buf += d;
+  /* lo 0 iniziale si sostituisce solo nei numeri (quantità); nel PIN va tenuto */
+  if(NP.buf==='0' && d!=='.' && !NP.mask) NP.buf = d; else NP.buf += d;
   npRender();
 }
 function numpadClear(){ if(NP){ NP.buf=''; npRender(); } }
@@ -868,7 +869,11 @@ function updateStatus(txt, col){
 }
 window.addEventListener('online', ()=>refreshAll(false));
 window.addEventListener('offline', ()=>updateStatus());
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refreshLive(); });
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){ S.adminUntil=0; return; }              /* app in secondo piano: PIN di nuovo richiesto */
+  if(PROTECTED.includes(S.tab) && !isAdmin() && !anyModalOpen()) _showTab('cassa');
+  refreshLive();
+});
 
 /* ---------- ricerca prodotti (solo match esatti, fallback per suffisso solo se univoco) ---------- */
 const stripZeros = c => /^\d+$/.test(c) ? c.replace(/^0+(?=\d)/,'') : c;
@@ -1704,6 +1709,8 @@ document.addEventListener('click', e=>{
 
 /* ---------- tab ---------- */
 function openTab(n){
+  /* uscendo da una pagina protetta, anche per un attimo, il PIN torna obbligatorio */
+  if(PROTECTED.includes(S.tab) && S.tab!==n) S.adminUntil=0;
   if(PROTECTED.includes(n)) requireAdmin(()=>_showTab(n), n.toUpperCase());
   else _showTab(n);
 }

@@ -1,0 +1,33 @@
+riga,aams,descrizione,esito,barcode_usato,prezzo,nota
+1,V0RCD,PLN011329 VEEV ONE BLUEBERRY 1.8%,NUOVO,V0RCD,0.00,prezzo da inserire
+2,3013,BENSON&HEDGES RED 100S*AST20,nel CSV (nome identico),80845331,5.50,
+3,478,CAMEL BLUE*AST20,nel CSV (aams esatto),478,0.00,prezzo da inserire
+4,632,CAMEL BLUE*CART20,nel CSV (aams esatto),632,0.00,prezzo da inserire
+5,201,CHESTERFIELD BLUE KS*AST20,nel CSV (aams esatto),201,0.00,prezzo da inserire
+6,96,CHESTERFIELD ORIGINAL KS*AST20,nel CSV (aams esatto),96,0.00,prezzo da inserire
+7,233,DIANA ROSSA KS*AST20,nel CSV (aams esatto),233,0.00,prezzo da inserire
+8,649,DUNHILL CLUB BIANCA*AST20,NUOVO,649,0.00,prezzo da inserire
+9,177,DUNHILL MS BIONDE*AST20,NUOVO,177,0.00,prezzo da inserire
+10,2287,JPS RED 100*AST20,nel CSV (prefisso 8 cifre),02287595,0.00,prezzo da inserire
+11,9,MARLBORO GOLD KS*AST20,nel CSV (aams esatto),9,0.00,prezzo da inserire
+12,618,MARLBORO GOLD KS*CART20,NUOVO,618,0.00,prezzo da inserire
+13,3340,MARLBORO GOLD LINE*AST20,NUOVO,3340,0.00,prezzo da inserire
+14,395,MARLBORO KS*AST20,nel CSV (aams esatto),395,0.00,prezzo da inserire
+15,396,MARLBORO KS*CART20,nel CSV (aams esatto),396,0.00,prezzo da inserire
+16,3504,MARLBORO POCKET PACK*CART20,NUOVO,3504,0.00,prezzo da inserire
+17,2652,ROTHMANS OF LONDON BLUE 20*AST20,nel CSV (nome identico),59460626,5.50,
+18,2270,ROTHMANS OF LONDON D-SERIES*AST20,nel CSV (nome identico),59038306,5.50,
+19,338,WINSTON BLUE*AST20,nel CSV (nome identico),80802730,5.80,
+20,1784,WINSTON BLUE 100S*AST20,nel CSV (nome identico),80851462,5.80,
+21,1783,WINSTON RED 100S*AST20,nel CSV (aams esatto),1783,0.00,prezzo da inserire
+22,91,WINSTON RED*AST20,nel CSV (nome (senza *2A)),80828594,0.00,prezzo da inserire
+23,3900,AL CAPONE POCKETS ORIG. FILTER 18*18PZ,NUOVO,3900,0.00,prezzo da inserire
+24,1963,AMERICAN SPIRIT ORIGINAL BLUE 30G*30GR,nel CSV (aams esatto),1963,0.00,prezzo da inserire
+25,3495,MARLBORO GOLD*30GR,nel CSV (prefisso 8 cifre),03495623,0.00,prezzo da inserire
+26,1927,PUEBLO CLASSIC*30GR,NUOVO,1927,0.00,prezzo da inserire
+27,20215,PUEBLO PINK*30GR,NUOVO,20215,0.00,prezzo da inserire
+28,21882,DELIA CLASSIC AZURE*20PZ,NUOVO,21882,0.00,prezzo da inserire
+29,21232,DELIA CLASSIC GREEN*20PZ,NUOVO,21232,0.00,prezzo da inserire
+30,20659,TEREA AZURE*20PZ,nel CSV (prefisso 8 cifre),20659376,0.00,prezzo da inserire
+31,20150,TEREA RUSSET*20PZ,nel CSV (aams esatto),20150,0.00,prezzo da inserire
+32,20154,TEREA TURQUOSE*20PZ,nel CSV (prefisso 8 cifre),20154382,0.00,prezzo da inserire

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'bar-tabacchi-v16';
-const APP_SHELL = ['./', './index.html', './manifest.json'];
+const CACHE_NAME = 'bar-tabacchi-v17';
+const APP_SHELL = ['./', './index.html', './manifest.json', './modalita.js'];
 
 self.addEventListener('install', event => {
   self.skipWaiting();

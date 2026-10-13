@@ -8,13 +8,13 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0f172a">
-<title>BAR TABACCHI V16</title>
+<title>BAR TABACCHI V17</title>
 <link rel="manifest" href="./manifest.json?v=v16">
 <link rel="icon" href="./icons/icon.svg?v=v16" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-const APP_VERSION='v16';
+const APP_VERSION='v17';
 try{
   if(localStorage.getItem('bt_ver')!==APP_VERSION){
     if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
@@ -161,7 +161,7 @@ document.addEventListener('click', e=>{
   const fn={ open:sbOpen, close:sbClose, start:sbStart, continua:sbContinua, esaurito:sbEsaurito, prezzo:sbPrezzo, back:sbShowProduct }[el.dataset.sb];
   if(fn) fn();
 });
-$('sbBarcode').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sbContinua(); } });
+document.addEventListener('DOMContentLoaded', ()=>{ $('sbBarcode').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sbContinua(); } }); });
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -528,6 +528,8 @@ input,select,textarea{min-height:58px;font-size:18px}
           <input id="restoreInput" type="file" accept="application/json,.json" class="hidden" onchange="restoreDati(this)">
           <button onclick="cambiaPin()" class="bg-white border-2 border-slate-900 px-5 py-3 rounded-2xl font-black text-[13px]">CAMBIA PIN</button>
           <button onclick="openScorteModal()" class="bg-white border-2 border-slate-900 px-5 py-3 rounded-2xl font-black text-[13px]">SCORTE</button>
+          <button onclick="eanStart()" class="bg-white border-2 border-slate-900 px-5 py-3 rounded-2xl font-black text-[13px]">COLLEGA EAN</button>
+          <button onclick="invStart()" class="bg-white border-2 border-slate-900 px-5 py-3 rounded-2xl font-black text-[13px]">INVENTARIO</button>
           <button onclick="openOrdineModal()" class="bg-yellow-400 border-2 border-yellow-500 px-5 py-3 rounded-2xl font-black text-[13px]">ORDINARE</button>
           <button onclick="calcMedie(true)" class="bg-slate-900 text-white px-5 py-3 rounded-2xl font-black text-[13px]">RICALCOLA GG</button>
           <span id="totPezzi" class="bg-slate-900 text-white px-4 py-3 rounded-full text-[12px] font-black">0 pz</span>
@@ -942,7 +944,7 @@ function renderUnknownHint(){
   const el=$('unknownHint'); if(!el) return;
   if(S.lastUnknown){
     el.classList.remove('hidden');
-    el.innerHTML = `<div class="bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-4 flex items-center justify-between gap-3"><p class="text-[13px] font-bold break-all">Ultimo codice non trovato in cassa: <span class="font-mono">${esc(S.lastUnknown)}</span></p><button data-act="useUnknown" class="bg-slate-900 text-white rounded-xl px-4 py-2 min-h-0 font-black text-[12px] whitespace-nowrap">CENSISCI</button></div>`;
+    el.innerHTML = `<div class="bg-yellow-50 border-2 border-yellow-300 rounded-2xl p-4 flex items-center justify-between gap-3"><p class="text-[13px] font-bold break-all">Ultimo codice non trovato in cassa: <span class="font-mono">${esc(S.lastUnknown)}</span></p><button data-act="useUnknown" class="bg-slate-900 text-white rounded-xl px-4 py-2 min-h-0 font-black text-[12px] whitespace-nowrap">CENSISCI</button><button onclick="eanPick(S.lastUnknown)" class="bg-white border-2 border-slate-900 rounded-xl px-4 py-2 min-h-0 font-black text-[12px] whitespace-nowrap">COLLEGA A PRODOTTO</button></div>`;
   } else el.classList.add('hidden');
 }
 
@@ -1730,5 +1732,6 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   refocus();
 });
 </script>
+<script src="./modalita.js?v=17"></script>
 </body>
 </html>

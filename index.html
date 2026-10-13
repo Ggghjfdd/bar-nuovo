@@ -176,27 +176,39 @@ input,select,textarea{min-height:58px;font-size:18px}
 .key{background:#f1f5f9;border-radius:12px;padding:14px 2px;font-weight:900;font-size:16px;border:1px solid #e2e8f0;min-height:0}
 .key:active{background:#0f172a;color:white}
 .chip{min-height:0}
+@keyframes sf{from{transform:scale(1.03);filter:brightness(1.08)}to{transform:none}}
+.scan-flash{animation:sf .35s ease-out}
 </style>
 </head>
 <body>
 <header class="sticky top-0 z-50 bg-white border-b shadow-sm">
-  <div class="bg-slate-900 px-4 py-3 flex justify-between items-center" style="padding-top:calc(12px + env(safe-area-inset-top))">
-    <div class="flex items-center gap-3">
-      <div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center font-black text-lg">BT</div>
-      <div>
-        <h1 class="text-white font-black text-[16px]">BAR TABACCHI V17</h1>
-        <p id="headerTurnoInfo" class="text-slate-400 text-[11px] font-bold">NESSUN TURNO APERTO</p>
+  <div class="bg-slate-900 px-3 py-2 flex justify-between items-center gap-2" style="padding-top:calc(8px + env(safe-area-inset-top))">
+    <div class="flex items-center gap-3 min-w-0">
+      <button id="menuBtn" onclick="openMenu()" aria-label="Menu" class="w-14 h-14 min-h-0 shrink-0 bg-white rounded-2xl flex flex-col items-center justify-center gap-[6px]">
+        <span class="block w-7 h-[4px] bg-slate-900 rounded"></span><span class="block w-7 h-[4px] bg-slate-900 rounded"></span><span class="block w-7 h-[4px] bg-slate-900 rounded"></span>
+      </button>
+      <div class="min-w-0">
+        <h1 class="text-white font-black text-[14px] leading-tight">BAR TABACCHI</h1>
+        <p id="headerTurnoInfo" class="text-slate-400 text-[11px] font-bold truncate">NESSUN TURNO APERTO</p>
       </div>
     </div>
-    <button id="statusSupa" onclick="refreshAll(true)" class="bg-yellow-400 text-black px-4 py-2 rounded-full text-[11px] font-black">DATABASE...</button>
-  </div>
-  <div class="px-3 py-2 flex gap-2 overflow-x-auto bg-white">
-    <button onclick="openTab('cassa')" id="b-cassa" class="bg-slate-900 text-white px-5 rounded-xl font-bold text-[12px]">CASSA</button>
-    <button onclick="openTab('carico')" id="b-carico" class="bg-white border-2 px-5 rounded-xl font-bold text-[12px]">CARICO</button>
-    <button onclick="openTab('report')" id="b-report" class="bg-white border-2 px-5 rounded-xl font-bold text-[12px]">RESOCONTI + TURNI</button>
-    <button onclick="openTab('mag')" id="b-mag" class="bg-white border-2 px-5 rounded-xl font-bold text-[12px]">MAGAZZINO</button>
+    <div class="flex items-center gap-2 shrink-0">
+      <button id="scanIcon" onclick="refocus();updateScanIcon()" aria-label="Pistola" title="Pistola" class="w-12 h-12 min-h-0 shrink-0 rounded-full bg-red-500 flex items-center justify-center">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14" stroke-width="1.8"/></svg>
+      </button>
+      <button id="statusSupa" onclick="refreshAll(true)" class="bg-yellow-400 text-black px-3 py-2 min-h-0 rounded-full text-[10px] font-black">DATABASE...</button>
+    </div>
   </div>
 </header>
+<div id="menuDrawer" class="modal hidden fixed inset-0 z-[240] bg-black/60" onclick="if(event.target.id==='menuDrawer') closeMenu()">
+  <nav class="bg-white h-full w-[82%] max-w-[320px] p-4 flex flex-col gap-3 shadow-2xl" style="padding-top:calc(16px + env(safe-area-inset-top))">
+    <div class="flex justify-between items-center mb-1"><span class="font-black text-[18px]">MENU</span><button onclick="closeMenu()" aria-label="Chiudi" class="w-12 h-12 min-h-0 bg-slate-100 rounded-full font-black text-xl">×</button></div>
+    <button onclick="menuGo('cassa')" id="b-cassa" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-900 text-white">CASSA</button>
+    <button onclick="menuGo('carico')" id="b-carico" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">CARICO</button>
+    <button onclick="menuGo('report')" id="b-report" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">RESOCONTI + TURNI</button>
+    <button onclick="menuGo('mag')" id="b-mag" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">MAGAZZINO</button>
+  </nav>
+</div>
 
 <div id="turnoBar" class="fixed bottom-0 left-0 right-0 z-[60] bg-white border-t-4 border-slate-900 shadow-[0_-8px_30px_rgba(0,0,0,0.2)] px-3 py-3 flex gap-2" style="padding-bottom:calc(12px + env(safe-area-inset-bottom))">
   <div class="flex-1 bg-slate-900 text-white rounded-2xl px-4 py-3 flex flex-col justify-center min-w-0">
@@ -404,8 +416,8 @@ input,select,textarea{min-height:58px;font-size:18px}
           <h2 class="font-black text-[18px] tracking-wider">CASSA <span id="cassaTurnoBadge" class="ml-2 bg-red-100 text-red-600 px-3 py-1 rounded-full text-[11px]">NESSUN TURNO</span></h2>
         </div>
         <input id="pistolaCassa" autocomplete="off" inputmode="none" style="position:fixed;left:10px;top:10px;width:1px;height:1px;opacity:0.01;z-index:1;" autofocus>
-        <div class="mt-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-3 text-center"><p class="text-[14px] font-black text-emerald-700 tracking-wide">🔫 PISTOLA ATTIVA</p></div>
-        <p id="lastScan" class="font-mono text-[13px] bg-slate-900 text-white mt-4 p-4 rounded-2xl break-all">In attesa pistola...</p>
+        <div id="scanBig" onclick="refocus()" class="mt-3 rounded-3xl border-4 border-slate-200 bg-slate-50 flex flex-col justify-between p-4 text-center" style="min-height:min(60dvh,560px)"></div>
+        <p id="lastScan" class="hidden"></p>
         <div class="mt-4 flex gap-2">
           <input id="manualCode" placeholder="Codice manuale AAMS / EAN / LOGISTA" class="flex-1 border-2 rounded-2xl px-4 py-4 font-mono font-bold text-[14px]">
           <button onclick="manualAdd()" class="bg-slate-900 text-white px-6 rounded-2xl font-black text-[14px]">OK</button>
@@ -564,7 +576,7 @@ const S = {
   turno:null, oggi:[], carrello:[], pay:'contanti', clientId:null, finalizing:false,
   tab:'cassa', adminUntil:0, pinFails:0, pinLock:0,
   pdf:[], pdfHash:null, pdfName:'', pdfInfo:null, alias:new Map(), aamsIdx:new Map(), caricoProd:null,
-  lastCode:null, lastTime:0, lastUnknown:null,
+  lastCode:null, lastTime:0, lastUnknown:null, scan:null,
   reportRows:[], turniRiep:[], reportTurnoId:null,
   schemaOk:true, online:true, loaded:false
 };
@@ -916,19 +928,19 @@ function handleScan(raw, mode){
   const code = normCode(raw);
   if(code.length < 3) return;
   if(!$('customAlert').classList.contains('hidden')){ hideAlert(); S.lastCode=null; S.lastTime=0; }
-  if(!S.inv.length){ $('lastScan').textContent='ATTENDI CARICAMENTO...'; showWarning('Magazzino non ancora caricato.','CARICAMENTO'); loadInventory(); return; }
+  if(!S.inv.length){ $('lastScan').textContent='ATTENDI CARICAMENTO...'; scanSet('err',null,code,'ATTENDI CARICAMENTO'); showWarning('Magazzino non ancora caricato.','CARICAMENTO'); loadInventory(); return; }
   const now = Date.now();
   if(code===S.lastCode && (now-S.lastTime)<COOLDOWN) return;
   S.lastCode = code; S.lastTime = now;
 
   const r = resolve([code]);
   if(r.ambiguous){
-    $('lastScan').textContent = 'Letto: '+code+' -> AMBIGUO';
+    $('lastScan').textContent = 'Letto: '+code+' -> AMBIGUO'; scanSet('err',null,code,'CODICE AMBIGUO');
     showWarning('Il codice '+code+' corrisponde a più prodotti:\n'+r.ambiguous.slice(0,5).map(p=>'• '+p.marca+' '+p.nome).join('\n')+'\n\nScegli il prodotto dal catalogo.','CODICE AMBIGUO');
     return;
   }
   if(!r.prod){
-    $('lastScan').textContent = 'Letto: '+code+' -> NON TROVATO';
+    $('lastScan').textContent = 'Letto: '+code+' -> NON TROVATO'; scanSet('err',null,code,'NON TROVATO');
     S.lastUnknown = code;
     if(mode==='carico'){ fillNewProduct(code); }
     else showWarning('Codice '+code+' non presente in anagrafica.\nChiedi al titolare di censirlo dalla scheda CARICO.','CODICE NON TROVATO');
@@ -936,7 +948,7 @@ function handleScan(raw, mode){
     return;
   }
   const prod = r.prod;
-  $('lastScan').textContent = 'Letto: '+code+' -> '+prod.marca+' '+prod.nome+(r.approx?' (corrispondenza approssimata)':'');
+  $('lastScan').textContent = 'Letto: '+code+' -> '+prod.marca+' '+prod.nome+(r.approx?' (corrispondenza approssimata)':''); scanSet('ok',prod,code,r.approx?'CORRISPONDENZA APPROSSIMATA':'');
   if(mode==='cassa') addToCart(prod); else apriPistolaCarico(prod);
 }
 function manualAdd(){ const el=$('manualCode'); const code=el.value.trim(); if(!code) return; S.lastCode=null; handleScan(code,'cassa'); el.value=''; }
@@ -1166,7 +1178,54 @@ function renderCatalog(){
     + (list.length>150?'<p class="col-span-full text-center text-[11px] text-slate-500">Mostrati 150 su '+list.length+': usa la ricerca</p>':'');
 }
 
+/* ---------- riquadro grande "ultimo pacchetto letto" ---------- */
+function scanSet(state, prod, code, msg){
+  S.scan = { state, code: prod?prod.code:code, msg:msg||'', ts:Date.now() };
+  renderScanBig(true);
+}
+function renderScanBig(flash){
+  const box=$('scanBig'); if(!box) return;
+  const sc=S.scan, pz=S.carrello.reduce((a,c)=>a+c.qty,0), tot=S.carrello.reduce((a,c)=>a+c.prezzo*c.qty,0);
+  const foot=`<div class="mt-3 bg-slate-900 text-white rounded-2xl px-4 py-3 flex justify-between items-center"><span class="font-black text-[13px] text-slate-300">SCONTRINO · ${pz} pz</span><span class="font-black text-[26px]">${eur(tot)}</span></div>`;
+  let body, cls='border-slate-200 bg-slate-50';
+  if(!sc){
+    body=`<div class="m-auto text-slate-400 font-black text-[22px] tracking-wide leading-snug">PASSA UN PACCHETTO<br><span class="text-[14px]">alla pistola</span></div>`;
+  } else if(sc.state==='ok'){
+    const p=S.byCode.get(sc.code); const inCart=S.carrello.find(c=>c.code===sc.code); const qty=p?p.qty:0;
+    cls = qty>0 ? 'border-emerald-400 bg-emerald-50' : 'border-amber-400 bg-amber-50';
+    body=`<div class="m-auto w-full py-2">
+        <p class="font-black text-slate-500 break-words" style="font-size:clamp(18px,4.5vw,28px)">${esc(p?p.marca:'')}</p>
+        <p class="font-black leading-none break-words mt-1" style="font-size:clamp(34px,10vw,84px)">${esc(p?p.nome:sc.code)}</p>
+        <p class="font-black text-emerald-600 mt-3 leading-none" style="font-size:clamp(40px,12vw,100px)">${eur(p?p.prezzo:0)}</p>
+        <p class="font-black mt-3 text-[16px] ${qty>0?'text-slate-600':'text-amber-700'}">${qty>0?('In scontrino: '+(inCart?inCart.qty:0)+' · Disponibili: '+qty):'ESAURITO'}</p>
+        ${sc.msg?`<p class="text-[12px] font-bold text-amber-700 mt-1">${esc(sc.msg)}</p>`:''}
+      </div>`;
+  } else {
+    cls='border-red-400 bg-red-50';
+    body=`<div class="m-auto w-full py-2"><p class="font-black text-red-600 leading-tight" style="font-size:clamp(30px,9vw,64px)">${esc(sc.msg||'ERRORE')}</p><p class="font-mono font-black text-[20px] mt-3 break-all">${esc(sc.code||'')}</p></div>`;
+  }
+  box.className='mt-3 rounded-3xl border-4 flex flex-col justify-between p-4 text-center '+cls+(flash?' scan-flash':'');
+  box.innerHTML=body+foot;
+}
+
+/* ---------- menu e icona pistola ---------- */
+function openMenu(){ $('menuDrawer').classList.remove('hidden'); }
+function closeMenu(){ $('menuDrawer').classList.add('hidden'); refocus(); }
+function menuGo(t){ $('menuDrawer').classList.add('hidden'); openTab(t); }
+/* La pistola e' una tastiera USB/Bluetooth: il browser non puo' vederla.
+   Verde = l'app e' pronta a ricevere le letture (campo di lettura attivo); rosso = non lo e'. */
+function updateScanIcon(){
+  const b=$('scanIcon'); if(!b) return;
+  const inp = S.tab==='cassa' ? $('pistolaCassa') : S.tab==='carico' ? $('pistolaCarico') : null;
+  const ready = !!inp && document.activeElement===inp && !anyModalOpen() && !document.hidden;
+  b.className='w-12 h-12 min-h-0 shrink-0 rounded-full flex items-center justify-center '+(ready?'bg-emerald-500':'bg-red-500');
+  b.title = ready ? 'Pistola pronta' : 'Pistola non attiva: tocca per riattivare';
+}
+setInterval(updateScanIcon, 500);
+document.addEventListener('focusin', updateScanIcon); document.addEventListener('focusout', ()=>setTimeout(updateScanIcon,50));
+
 function renderCart(){
+  renderScanBig();
   const c=$('carrello'); let tot=0, pz=0;
   S.carrello.forEach(it=>{ tot+=it.prezzo*it.qty; pz+=it.qty; });
   c.innerHTML = S.carrello.length ? S.carrello.map((it,i)=>{
@@ -1718,8 +1777,8 @@ function _showTab(n){
   S.tab=n;
   document.querySelectorAll('.tab-page').forEach(e=>e.classList.add('hidden'));
   $('tab-'+n)?.classList.remove('hidden');
-  document.querySelectorAll('[id^="b-"]').forEach(b=>{ b.className='bg-white border-2 px-5 rounded-xl font-bold text-[12px]'; });
-  const btn=$('b-'+n); if(btn) btn.className='bg-slate-900 text-white px-5 rounded-xl font-bold text-[12px]';
+  document.querySelectorAll('[id^="b-"]').forEach(b=>{ b.className='w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100'; });
+  const btn=$('b-'+n); if(btn) btn.className='w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-900 text-white';
   if(n==='report') loadReport();
   render(); refocus();
 }

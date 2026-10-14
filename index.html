@@ -764,7 +764,14 @@ setInterval(()=>{ if(PROTECTED.includes(S.tab) && !isAdmin() && !anyModalOpen())
 /* ---------- caricamento dati ---------- */
 /* Il prodotto ha UN solo nome (campo marca). La colonna nome del database resta ma non si usa piu':
    se contiene testo (dati vecchi) lo si accoda; se e' solo un numero (vecchio catalogo) lo si ignora. */
-const unisciNome=(m,n)=>{ m=String(m||'').trim(); n=String(n||'').trim(); if(/^\d+$/.test(n)) n=''; return (m+' '+n).trim(); };
+/* toglie le sigle tecniche Logista dal nome: *AST20, *CART20 (diventa " CART"), *2A, *20PZ, *30GR (diventa " 30GR")... */
+const pulisciNome=s=>String(s||'')
+  .replace(/\*CART\d*/gi,' CART').replace(/\*AST\d*/gi,'')
+  .replace(/\*(\d+)\s*GR\b/gi,' $1GR')
+  .replace(/\*[A-Z0-9&]{1,6}\b/gi,'')
+  .replace(/^[A-Z]{2,4}\d{4,}\s+/,'').replace(/\b(\d+)G (\1GR)\b/gi,'$2')
+  .replace(/\s+/g,' ').trim();
+const unisciNome=(m,n)=>{ m=String(m||'').trim(); n=String(n||'').trim(); if(/^\d+$/.test(n)) n=''; return pulisciNome(m+' '+n); };
 const mapRow = r => ({
   code:r.barcode, marca:unisciNome(r.marca,r.nome), nome:'', prezzo:Number(r.prezzo)||0, qty:Number(r.quantita)||0,
   codice_aams:r.codice_aams||'', codice_logista:r.codice_logista||'', categoria:r.categoria||'KS',
@@ -1583,7 +1590,7 @@ function renderPdfPreview(){
     else if(d.stato==='incompleto') st=`<b class="text-amber-600">dati incompleti</b>: ${esc(d.prod.marca+' '+d.prod.nome)}`;
     else if(d.stato==='ambiguo') st='<b class="text-red-600">più prodotti con questo codice</b>';
     else st='<b class="text-red-600">non presente in catalogo</b>';
-    return `<div class="border-b py-2 text-[11px] flex justify-between gap-2 ${bg}"><div class="min-w-0"><b>${esc(d.aams||d.fullCode)}</b> ${esc(d.descr)}<br><span class="text-slate-500">${fmtKg(d.kgc)} kg${d.kp?' ÷ '+d.kp+' kg/pz':''}</span>${d.nota?' <b class="text-amber-600">'+esc(d.nota)+'</b>':''}<br>${st}</div><div class="flex flex-col gap-1 items-end shrink-0"><button data-act="pdfQty" data-i="${i}" class="chip ${d.qtyOk?'bg-yellow-200 border-yellow-400':'bg-amber-300 border-amber-500'} border-2 rounded-xl px-3 min-h-0 h-10 font-black whitespace-nowrap">${d.qty>0?d.qty:'?'} pz ✏️</button>${d.stato!=='ok'?`<button data-act="wizRow" data-i="${i}" class="chip bg-red-500 text-white rounded-xl px-3 min-h-0 h-9 font-black text-[11px] whitespace-nowrap">RISOLVI</button>`:''}</div></div>`;
+    return `<div class="border-b py-2 text-[11px] flex justify-between gap-2 ${bg}"><div class="min-w-0"><b>${esc(pulisciNome(d.descr))}</b><br><span class="text-slate-500">${fmtKg(d.kgc)} kg${d.kp?' ÷ '+d.kp+' kg/pz':''} · AAMS ${esc(d.aams||d.fullCode)}</span>${d.nota?' <b class="text-amber-600">'+esc(d.nota)+'</b>':''}<br>${st}</div><div class="flex flex-col gap-1 items-end shrink-0"><button data-act="pdfQty" data-i="${i}" class="chip ${d.qtyOk?'bg-yellow-200 border-yellow-400':'bg-amber-300 border-amber-500'} border-2 rounded-xl px-3 min-h-0 h-10 font-black whitespace-nowrap">${d.qty>0?d.qty:'?'} pz ✏️</button>${d.stato!=='ok'?`<button data-act="wizRow" data-i="${i}" class="chip bg-red-500 text-white rounded-xl px-3 min-h-0 h-9 font-black text-[11px] whitespace-nowrap">RISOLVI</button>`:''}</div></div>`;
   }).join('');
   $('pdfPreview').innerHTML=h;
 }

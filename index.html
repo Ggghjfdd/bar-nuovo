@@ -730,8 +730,10 @@ function requireAdmin(cb, area='AREA RISERVATA'){
   if(Date.now() < S.pinLock){ showWarning('Troppi tentativi errati.\nRiprova tra '+Math.ceil((S.pinLock-Date.now())/1000)+' secondi.','PIN BLOCCATO'); return; }
   openNumpad({ label:'PIN: '+area, mask:true, maxLen:12, onOk: async pin => {
     try{
-      const { data, error } = await supa.rpc('verifica_pin', { p_pin: pin });
+      let { data, error } = await supa.rpc('verifica_pin', { p_pin: pin });
       if(error) throw error;
+      /* compatibilita': il vecchio tastierino perdeva lo 0 iniziale, quindi un PIN impostato allora non lo contiene */
+      if(data !== true && /^0+\d/.test(pin)){ const r2=await supa.rpc('verifica_pin', { p_pin: pin.replace(/^0+/,'') }); if(r2.error) throw r2.error; data=r2.data; }
       if(data === true){ S.pinFails=0; S.adminUntil = Date.now()+ADMIN_MS; cb(); }
       else{
         S.pinFails++;
@@ -748,8 +750,9 @@ function cambiaPin(){
         validate:v=>/^\d{6,12}$/.test(v)?null:'Il PIN deve avere da 6 a 12 cifre',
         onOk: async nuovo => {
           try{
-            const { data, error } = await supa.rpc('cambia_pin', { p_old: old, p_new: nuovo });
+            let { data, error } = await supa.rpc('cambia_pin', { p_old: old, p_new: nuovo });
             if(error) throw error;
+            if(data !== true && /^0+\d/.test(old)){ const r2=await supa.rpc('cambia_pin', { p_old: old.replace(/^0+/,''), p_new: nuovo }); if(r2.error) throw r2.error; data=r2.data; }
             if(data === true){ S.adminUntil=0; showSuccess('PIN cambiato. Al prossimo accesso usa il nuovo PIN.','PIN'); }
             else showError('PIN attuale errato.','PIN');
           }catch(e){ showError(errMsg(e),'PIN'); }

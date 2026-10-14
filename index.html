@@ -129,7 +129,7 @@ function sbQuantita(){
 async function sbSalva(qty){
   const it=SB.cur; if(!it||!SB.barcode||SB.busy) return;
   SB.busy=true;
-  const row={ barcode:SB.barcode, marca:'', nome:it.nome, prezzo:SB.prezzo, quantita:qty, codice_aams:it.aams, codice_logista:null,
+  const row={ barcode:SB.barcode, marca:it.nome, nome:'', prezzo:SB.prezzo, quantita:qty, codice_aams:it.aams, codice_logista:null,
               categoria:'TABACCHI', data_ultimo_carico:(qty>0?new Date().toISOString():null), media_giornaliera:0, scorta:20 };
   try{
     const { error } = await supa.from(T).insert([row]);
@@ -484,8 +484,7 @@ input,select,textarea{min-height:58px;font-size:18px}
           <h3 class="font-black text-[18px]">NUOVO PRODOTTO / CARICO MANUALE</h3>
           <p class="text-[12px] text-slate-500 mt-1">Se il barcode esiste già, i pezzi vengono sommati alla giacenza.</p>
           <div class="grid grid-cols-2 gap-3 mt-4">
-            <input id="newMarca" placeholder="Marca" class="border-2 rounded-2xl px-4 py-4 font-bold">
-            <input id="newNome" placeholder="Nome" class="border-2 rounded-2xl px-4 py-4 font-bold">
+            <input id="newMarca" placeholder="Prodotto (es. MARLBORO GOLD KS)" class="col-span-2 border-2 rounded-2xl px-4 py-4 font-bold">
             <input id="newPrezzo" readonly data-numpad="PREZZO €" data-decimal="1" placeholder="Prezzo €" class="border-2 rounded-2xl px-4 py-4 bg-yellow-50">
             <input id="newQty" readonly data-numpad="QUANTITÀ" placeholder="Quantità" class="border-2 rounded-2xl px-4 py-4 bg-yellow-50">
             <input id="newBarcode" placeholder="Barcode EAN / codice (obbligatorio)" class="col-span-2 border-2 rounded-2xl px-4 py-4 font-mono">
@@ -763,8 +762,11 @@ function cambiaPin(){
 setInterval(()=>{ if(PROTECTED.includes(S.tab) && !isAdmin() && !anyModalOpen()) _showTab('cassa'); }, 15000);
 
 /* ---------- caricamento dati ---------- */
+/* Il prodotto ha UN solo nome (campo marca). La colonna nome del database resta ma non si usa piu':
+   se contiene testo (dati vecchi) lo si accoda; se e' solo un numero (vecchio catalogo) lo si ignora. */
+const unisciNome=(m,n)=>{ m=String(m||'').trim(); n=String(n||'').trim(); if(/^\d+$/.test(n)) n=''; return (m+' '+n).trim(); };
 const mapRow = r => ({
-  code:r.barcode, marca:r.marca||'', nome:r.nome||'', prezzo:Number(r.prezzo)||0, qty:Number(r.quantita)||0,
+  code:r.barcode, marca:unisciNome(r.marca,r.nome), nome:'', prezzo:Number(r.prezzo)||0, qty:Number(r.quantita)||0,
   codice_aams:r.codice_aams||'', codice_logista:r.codice_logista||'', categoria:r.categoria||'KS',
   ultimo:r.data_ultimo_carico, scorta:(r.scorta==null?20:Number(r.scorta)), media:0
 });
@@ -1134,7 +1136,7 @@ async function confermaPistolaCarico(){
 
 /* ---------- nuovo prodotto / carico manuale ---------- */
 async function addNewProduct(){
-  const marca=$('newMarca').value.trim(), nome=$('newNome').value.trim();
+  const marca=$('newMarca').value.trim(), nome='';
   const prezzo=num($('newPrezzo').value), qty=parseInt($('newQty').value);
   const barcode=normCode($('newBarcode').value);
   const aams=$('newCodAams2').value.trim(), log=$('newCodLog2').value.trim(), cat=$('newCat').value.trim().toUpperCase()||'KS';
@@ -1148,14 +1150,14 @@ async function addNewProduct(){
       if(error) throw error;
       ex.qty=data; ex.ultimo=new Date().toISOString();
     } else {
-      if(!marca||!nome||isNaN(prezzo)||prezzo<=0||isNaN(qty)||qty<0){ showWarning('Compila marca, nome, prezzo (maggiore di 0) e quantità.','DATI MANCANTI'); return; }
+      if(!marca||isNaN(prezzo)||prezzo<=0||isNaN(qty)||qty<0){ showWarning('Compila prodotto, prezzo (maggiore di 0) e quantità.','DATI MANCANTI'); return; }
       const { error } = await supa.from(T).insert([{ barcode, marca, nome, prezzo, quantita:qty, codice_aams:aams||null, codice_logista:log||null, categoria:cat, data_ultimo_carico:new Date().toISOString(), media_giornaliera:0, scorta:20 }]);
       if(error) throw error;
     }
-    ['newMarca','newNome','newPrezzo','newQty','newBarcode','newCodAams2','newCodLog2','newCat'].forEach(i=>$(i).value='');
+    ['newMarca','newPrezzo','newQty','newBarcode','newCodAams2','newCodLog2','newCat'].forEach(i=>$(i).value='');
     if(S.lastUnknown===barcode){ S.lastUnknown=null; renderUnknownHint(); }
     await loadInventory(true);
-    toast('SALVATO', marca?marca+' '+nome:'Giacenza aggiornata');
+    toast('SALVATO', marca||'Giacenza aggiornata');
   }catch(e){
     showError(e.code==='23505' ? 'Esiste già un prodotto con questo barcode.' : errMsg(e),'SALVATAGGIO');
   }
@@ -1197,8 +1199,7 @@ function renderScanBig(flash){
     const p=S.byCode.get(sc.code); const inCart=S.carrello.find(c=>c.code===sc.code); const qty=p?p.qty:0;
     cls = qty>0 ? 'border-emerald-400 bg-emerald-50' : 'border-amber-400 bg-amber-50';
     body=`<div class="m-auto w-full py-2">
-        <p class="font-black text-slate-500 break-words" style="font-size:clamp(18px,4.5vw,28px)">${esc(p?p.marca:'')}</p>
-        <p class="font-black leading-none break-words mt-1" style="font-size:clamp(34px,10vw,84px)">${esc(p?p.nome:sc.code)}</p>
+        <p class="font-black leading-none break-words" style="font-size:clamp(34px,10vw,84px)">${esc(p?p.marca:sc.code)}</p>
         <p class="font-black text-emerald-600 mt-3 leading-none" style="font-size:clamp(40px,12vw,100px)">${eur(p?p.prezzo:0)}</p>
         <p class="font-black mt-3 text-[16px] ${qty>0?'text-slate-600':'text-amber-700'}">${qty>0?('In scontrino: '+(inCart?inCart.qty:0)+' · Disponibili: '+qty):'ESAURITO'}</p>
         ${sc.msg?`<p class="text-[12px] font-bold text-amber-700 mt-1">${esc(sc.msg)}</p>`:''}
@@ -1400,7 +1401,7 @@ async function restoreDati(inp){
     const src=o.prodotti||o.inventory; if(!Array.isArray(src)||!src.length) throw new Error('Il file non contiene prodotti');
     const oldScorte=(o.scorte&&typeof o.scorte==='object'&&!Array.isArray(o.scorte))?o.scorte:{};
     const rows=src.map(r=>{ const code=r.barcode??r.code; return {
-      barcode:code, marca:r.marca||'', nome:r.nome||'', prezzo:Number(r.prezzo)||0,
+      barcode:code, marca:unisciNome(r.marca,r.nome), nome:'', prezzo:Number(r.prezzo)||0,
       quantita:Math.max(0,parseInt(r.quantita??r.qty)||0),
       codice_aams:r.codice_aams||null, codice_logista:r.codice_logista||null, categoria:r.categoria||'KS',
       data_ultimo_carico:r.data_ultimo_carico||null,
@@ -1448,7 +1449,7 @@ async function importaVecchiDati(){
    NON contiene EAN né prezzo: le righe sconosciute si risolvono nella finestra guidata. */
 const MARCHE_COMPOSTE = ['BENSON&HEDGES','AL CAPONE','AMERICAN SPIRIT','ROTHMANS OF LONDON','PHILIP MORRIS','LUCKY STRIKE','GOLDEN VIRGINIA'];
 const aamsKey = c => stripZeros(normCode(c));
-const isCompleto = p => !!(String(p.marca||'').trim() && String(p.nome||'').trim() && p.prezzo > 0);
+const isCompleto = p => !!(String(p.marca||'').trim() && p.prezzo > 0);
 const fmtKg = n => Number(n).toFixed(3).replace('.', ',');
 
 /* raggruppa i pezzi di testo per riga (stessa altezza) e li ordina da sinistra a destra */
@@ -1518,8 +1519,7 @@ function guessCampi(descr){
   let marca=null;
   for(const mc of MARCHE_COMPOSTE){ if(d===mc || d.startsWith(mc+' ')){ marca=mc; break; } }
   if(!marca) marca=d.split(' ')[0];
-  const nome=(d.slice(marca.length).trim()+suffix).trim() || d;
-  return { marca, nome, categoria };
+  return { marca:(d+suffix).trim(), nome:'', categoria };
 }
 const tokenize = s => String(s).toUpperCase().replace(/\*(AST|CART)\d*$/,' ').replace(/[^A-Z0-9 ]/g,' ').split(/\s+/).filter(t=>t.length>1);
 
@@ -1633,10 +1633,10 @@ function wizRender(){
         <div id="wizList" class="mt-3 space-y-2 max-h-[40vh] overflow-auto"></div>`+btn('wizBack','← INDIETRO','bg-white border-2 border-slate-300');
   } else if(W.mode==='crea'){
     const e=r.stato==='incompleto'?r.prod:null;
-    const g=e?{marca:e.marca,nome:e.nome,prezzo:e.prezzo>0?String(e.prezzo):'',categoria:e.categoria||'KS',log:e.codice_logista||''}:{...guessCampi(r.descr),prezzo:'',log:''};
+    const g=e?{marca:e.marca,nome:'',prezzo:e.prezzo>0?String(e.prezzo):'',categoria:e.categoria||'KS',log:e.codice_logista||''}:{...guessCampi(r.descr),prezzo:'',log:''};
     const f=(id,label,val,extra='')=>`<label class="block"><span class="text-[11px] font-black text-slate-500">${label}</span><input id="${id}" value="${esc(val)}" ${extra} class="w-full border-2 rounded-2xl px-4 py-3 font-bold ${extra.includes('readonly')?'bg-yellow-50':''}"></label>`;
     h+=`<p class="mt-4 font-black text-[15px]">${e?'COMPLETA I DATI DEL PRODOTTO':'NUOVO PRODOTTO'}</p><div class="grid grid-cols-2 gap-3 mt-2">
-      ${f('wMarca','MARCA *',g.marca)}${f('wNome','NOME *',g.nome)}
+      <div class="col-span-2">${f('wMarca','PRODOTTO * (es. MARLBORO GOLD KS)',g.marca)}</div>
       ${f('wPrezzo','PREZZO € *',g.prezzo,'readonly data-numpad="PREZZO €" data-decimal="1" placeholder="tocca"')}
       ${f('wCat','CATEGORIA',g.categoria)}
       <div class="col-span-2">${f('wBarcode','BARCODE EAN * (tocca e spara con la pistola)',e?e.code:'',(e?'readonly ':'')+'placeholder="codice a barre" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}"')}</div>
@@ -1670,11 +1670,11 @@ async function wizPick(code){
 async function wizSalva(){
   const r=wizRowCur(); if(!r) return;
   const e=r.stato==='incompleto'?r.prod:null;
-  const marca=$('wMarca').value.trim().toUpperCase(), nome=$('wNome').value.trim().toUpperCase();
+  const marca=$('wMarca').value.trim().toUpperCase(), nome='';
   const prezzo=num($('wPrezzo').value), cat=($('wCat').value.trim().toUpperCase())||'KS';
   const aams=r.aams||$('wAams').value.trim().toUpperCase(), log=$('wLog').value.trim();
   const barcode=e?e.code:normCode($('wBarcode').value);
-  if(!marca||!nome){ showWarning('Marca e nome sono obbligatori.','DATI MANCANTI'); return; }
+  if(!marca){ showWarning('Il nome del prodotto è obbligatorio.','DATI MANCANTI'); return; }
   if(isNaN(prezzo)||prezzo<=0||prezzo>=1000){ showWarning('Inserisci un prezzo valido (maggiore di 0).','DATI MANCANTI'); return; }
   if(!e){
     if(!/^[0-9A-Z]{4,20}$/.test(barcode)){ showWarning('Inserisci il barcode: tocca il campo e spara con la pistola (oppure scrivilo a mano).','DATI MANCANTI'); return; }

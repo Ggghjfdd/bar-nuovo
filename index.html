@@ -333,7 +333,7 @@ input,select,textarea{min-height:58px;font-size:18px}
     </div>
     <div id="ordineList" class="p-4 overflow-auto space-y-2 flex-1"></div>
     <div class="p-4 border-t bg-yellow-50 flex gap-2">
-      <button onclick="exportOrdineCSV()" class="bg-slate-900 text-white rounded-2xl px-6 py-3 font-black text-[12px]">CSV ORDINE</button>
+      <button onclick="exportOrdineLogista()" class="bg-yellow-400 border-2 border-yellow-500 rounded-2xl px-6 py-3 font-black text-[12px]">EXPORT LOGISTA (.xls)</button><button onclick="exportOrdineCSV()" class="bg-slate-900 text-white rounded-2xl px-6 py-3 font-black text-[12px]">CSV ORDINE</button>
       <button onclick="calcMedie(true)" class="bg-white border-2 rounded-2xl px-6 py-3 font-black text-[12px]">RICALCOLA ROTAZIONE</button>
       <button onclick="closeOrdineModal()" class="ml-auto bg-white border-2 rounded-2xl px-6 py-3 font-black text-[12px]">CHIUDI</button>
     </div>
@@ -1324,6 +1324,27 @@ function renderOrdine(){
   const valore=lista.reduce((s,o)=>s+o.p.prezzo*o.pezzi,0);
   $('ordineSummary').innerHTML = `<div class="bg-white border rounded-xl p-3 text-center"><p class="text-[10px] font-bold text-slate-500">DA ORDINARE</p><p class="font-black text-[18px]">${lista.length}</p></div><div class="bg-white border rounded-xl p-3 text-center"><p class="text-[10px] font-bold text-slate-500">STECCHE</p><p class="font-black text-[18px]">${lista.reduce((s,o)=>s+o.stecche,0)}</p></div><div class="bg-yellow-100 border rounded-xl p-3 text-center"><p class="text-[10px] font-bold">VALORE (prezzo vendita)</p><p class="font-black text-[18px]">${eur(valore)}</p></div>`;
   $('ordineList').innerHTML = lista.length ? lista.map(o=>`<div class="bg-slate-50 border rounded-xl p-3 flex justify-between gap-2"><div class="min-w-0"><p class="font-bold text-[12px]">${esc(o.p.marca)} ${esc(o.p.nome)} <span class="bg-red-100 text-red-700 px-1.5 rounded text-[10px]">${fmtGG(o.p)} copertura</span></p><p class="font-mono text-[10px] text-slate-600 break-all">EAN:${esc(o.p.code)} AAMS:${esc(o.p.codice_aams)} LOG:${esc(o.p.codice_logista)} - Giac:${o.p.qty} Scorta:${o.p.scorta} → Finale:${o.finale} - Ult. carico:${o.p.ultimo?fmtDate(o.p.ultimo):'-'}</p></div><span class="bg-slate-900 text-white px-3 py-1 rounded-full text-[11px] font-bold h-fit whitespace-nowrap">${o.stecche} st</span></div>`).join('') : '<p class="text-center text-[12px] text-slate-400 py-6">Niente da ordinare.</p>';
+}
+/* Export ordine nel formato del catalogo Logista (.xls): stesso template, colonna Quantita compilata (in stecche) */
+function caricaScript(url){ return new Promise((ok,ko)=>{ const e=document.createElement('script'); e.src=url; e.onload=ok; e.onerror=()=>ko(new Error('script')); document.head.appendChild(e); }); }
+async function exportOrdineLogista(){
+  const lista=calcOrdine();
+  if(!lista.length){ showWarning('Non c\'è niente da ordinare.','ORDINE VUOTO'); return; }
+  try{
+    if(!window.XLSX) await caricaScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+    const cat=await (await fetch('./catalogo_logista.json')).json();
+    const perCodice=new Map(); lista.forEach(o=>{ const k=aamsKey(o.p.codice_aams); if(k) perCodice.set(k,(perCodice.get(k)||0)+o.stecche); });
+    const usati=new Set();
+    const aoa=[cat.head];
+    cat.rows.forEach(r=>{ const k=aamsKey(r[0]); const q=perCodice.get(k); if(q){ usati.add(k); }
+      aoa.push([r[0], q||'', r[1], r[2], r[3], r[4], r[5], r[6]]); });
+    const mancanti=lista.filter(o=>!usati.has(aamsKey(o.p.codice_aams)));
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Ordine');
+    XLSX.writeFile(wb,'Catalogo_Prodotti_ordine_'+localDay()+'.xls',{bookType:'biff8'});
+    if(mancanti.length) showWarning('Questi prodotti NON sono nel file (AAMS mancante o non nel catalogo), aggiungili a mano sul portale:\n'+mancanti.map(o=>'• '+o.p.marca+' ('+o.stecche+' st)').join('\n'),'ATTENZIONE');
+    else toast('File ordine creato ('+usati.size+' prodotti)');
+  }catch(e){ showError('Non riesco a creare il file .xls (serve internet la prima volta). Usa CSV ORDINE.'); }
 }
 function exportOrdineCSV(){
   const rows=[['marca','nome','barcode','codice_aams','codice_logista','giacenza','scorta','mancanza','stecche','pezzi_ordinati','giacenza_finale','giorni_copertura','ultimo_carico','media_giornaliera','prezzo','valore']];

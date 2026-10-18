@@ -290,17 +290,14 @@ function prodEdit(code){
   open('MODIFICA PRODOTTO'); sub(p.code);
   const senza=/^NOBARCODE_/.test(p.code);
   $('mdBody').innerHTML =
-    `<div class="grid grid-cols-2 gap-3">
-       <div class="col-span-2">${peField('peMarca','PRODOTTO *',p.marca)}</div>
-       <div class="col-span-2">${peField('peBarcode','BARCODE (tocca e spara con la pistola)',p.code,'onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" autocomplete="off"')}
+    `<details open class="tendina"><summary><span>📝 IDENTIFICAZIONE</span><span class="arr">▼</span></summary><div class="corpo grid grid-cols-2 gap-3"><div class="col-span-2">${peField('peMarca','PRODOTTO *',p.marca)}</div>${peField('peCat','CATEGORIA',p.categoria||'KS')}</div></details>
+     <details open class="tendina"><summary><span>🏷 CODICI</span><span class="arr">▼</span></summary><div class="corpo grid grid-cols-2 gap-3"><div class="col-span-2">${peField('peBarcode','BARCODE (tocca e spara con la pistola)',p.code,'onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" autocomplete="off"')}
          <p class="text-[11px] font-bold mt-1 ${senza?'text-red-600':'text-slate-500'}">${senza?'Questo prodotto non ha ancora un barcode: sparalo qui quando vuoi.':'Se cambi il barcode il prodotto prende il nuovo codice; giacenza, storico e collegamenti restano.'}</p></div>
        ${peField('peAams','CODICE AAMS',p.codice_aams||'')}
-       ${peField('peLog','CODICE LOGISTA',p.codice_logista||'')}
-       ${peField('pePrezzo','PREZZO € *',String(p.prezzo||''),'readonly data-numpad="PREZZO €" data-decimal="1" placeholder="tocca"')}
-       ${peField('peCat','CATEGORIA',p.categoria||'KS')}
+       ${peField('peLog','CODICE LOGISTA',p.codice_logista||'')}</div></details>
+     <details open class="tendina"><summary><span>💶 PREZZO E SCORTE</span><span class="arr">▼</span></summary><div class="corpo grid grid-cols-2 gap-3">${peField('pePrezzo','PREZZO € *',String(p.prezzo||''),'readonly data-numpad="PREZZO €" data-decimal="1" placeholder="tocca"')}
        ${peField('peQty','GIACENZA (pezzi)',String(p.qty),'readonly data-numpad="GIACENZA" placeholder="tocca"')}
-       ${peField('peScorta','SCORTA MINIMA',String(p.scorta),'readonly data-numpad="SCORTA" placeholder="tocca"')}
-     </div>
+       ${peField('peScorta','SCORTA MINIMA',String(p.scorta),'readonly data-numpad="SCORTA" placeholder="tocca"')}</div></details>
      <div class="grid grid-cols-2 gap-3 mt-5">${btn('close','ANNULLA',BTN_LIGHT)}${btn('peSave','SALVA',BTN_OK)}</div>`;
 }
 async function peSave(){

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bar-tabacchi-v22';
+const CACHE_NAME = 'bar-tabacchi-v23';
 const APP_SHELL = ['./', './index.html', './manifest.json', './modalita.js','./catalogo_logista.json'];
 
 self.addEventListener('install', event => {

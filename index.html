@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-const APP_VERSION='v22';
+const APP_VERSION='v23';
 try{
   if(localStorage.getItem('bt_ver')!==APP_VERSION){
     if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
@@ -369,9 +369,9 @@ input,select,textarea{min-height:58px;font-size:18px}
       <button onclick="closeIstruzioni()" aria-label="Chiudi" class="w-12 h-12 min-h-0 shrink-0 bg-slate-100 rounded-full font-black text-xl">×</button>
     </div>
     <div class="p-5 overflow-auto flex-1 space-y-4">
-      <div class="bg-red-50 border-2 border-red-400 rounded-2xl p-4">
-        <p class="font-black text-[16px] text-red-700">REGOLA D'ORO</p>
-        <p class="font-black text-[15px] text-red-800 mt-1">Ogni pacchetto venduto va fatto DUE VOLTE, nello stesso momento: 1) scansione su questo tablet, 2) battitura sulla cassa vera del negozio. Mai una senza l'altra.</p>
+      <div class="bg-blue-50 border-2 border-blue-400 rounded-2xl p-4">
+        <p class="font-black text-[16px] text-blue-800">DA RICORDARE</p>
+        <p class="font-black text-[15px] text-blue-900 mt-1">Ogni vendita va registrata sia su questo tablet sia sulla cassa vera del negozio.</p>
       </div>
       <p class="font-black text-[15px] mt-2">📅 A INIZIO TURNO</p>
       <div class="flex gap-3 items-start"><span class="shrink-0 w-10 h-10 rounded-full bg-slate-900 text-white font-black flex items-center justify-center">1</span><div><p class="font-black text-[16px]">Tocca INIZIA TURNO</p><p class="text-[14px] text-slate-600 font-bold mt-0.5">Il tasto è nella barra in basso.</p></div></div><div class="flex gap-3 items-start"><span class="shrink-0 w-10 h-10 rounded-full bg-slate-900 text-white font-black flex items-center justify-center">2</span><div><p class="font-black text-[16px]">Scrivi il tuo nome</p><p class="text-[14px] text-slate-600 font-bold mt-0.5">Con la tastiera che compare, poi conferma. Il turno è attivo.</p></div></div>

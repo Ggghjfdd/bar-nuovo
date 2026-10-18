@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-const APP_VERSION='v21';
+const APP_VERSION='v22';
 try{
   if(localStorage.getItem('bt_ver')!==APP_VERSION){
     if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
@@ -236,6 +236,7 @@ input,select,textarea{min-height:58px;font-size:18px}
     <button onclick="menuGo('cassa')" id="b-cassa" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-900 text-white">CASSA</button>
     <button onclick="menuGo('carico')" id="b-carico" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">CARICO</button>
     <button onclick="menuGo('report')" id="b-report" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">RESOCONTI + TURNI</button>
+    <button onclick="closeMenu();openIstruzioni()" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-blue-600 text-white">📘 ISTRUZIONI</button>
     <button onclick="menuGo('mag')" id="b-mag" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">MAGAZZINO</button>
   </nav>
 </div>
@@ -361,6 +362,39 @@ input,select,textarea{min-height:58px;font-size:18px}
 </div>
 
 <!-- RESOCONTO TURNO -->
+<div id="istruzioniModal" class="modal hidden fixed inset-0 bg-black/80 z-[230] flex items-center justify-center p-3">
+  <div class="bg-white rounded-3xl max-w-[720px] w-full max-h-[92vh] flex flex-col">
+    <div class="p-5 border-b flex justify-between items-center gap-3">
+      <div><p class="text-[11px] font-black text-blue-600 tracking-widest">ISTRUZIONE OPERATIVA</p><h3 class="font-black text-[22px] leading-tight">COME SI LAVORA IN CASSA</h3></div>
+      <button onclick="closeIstruzioni()" aria-label="Chiudi" class="w-12 h-12 min-h-0 shrink-0 bg-slate-100 rounded-full font-black text-xl">×</button>
+    </div>
+    <div class="p-5 overflow-auto flex-1 space-y-4">
+      <div class="bg-red-50 border-2 border-red-400 rounded-2xl p-4">
+        <p class="font-black text-[16px] text-red-700">REGOLA D'ORO</p>
+        <p class="font-black text-[15px] text-red-800 mt-1">Ogni pacchetto venduto va fatto DUE VOLTE, nello stesso momento: 1) scansione su questo tablet, 2) battitura sulla cassa vera del negozio. Mai una senza l'altra.</p>
+      </div>
+      <p class="font-black text-[15px] mt-2">📅 A INIZIO TURNO</p>
+      <div class="flex gap-3 items-start"><span class="shrink-0 w-10 h-10 rounded-full bg-slate-900 text-white font-black flex items-center justify-center">1</span><div><p class="font-black text-[16px]">Tocca INIZIA TURNO</p><p class="text-[14px] text-slate-600 font-bold mt-0.5">Il tasto è nella barra in basso.</p></div></div><div class="flex gap-3 items-start"><span class="shrink-0 w-10 h-10 rounded-full bg-slate-900 text-white font-black flex items-center justify-center">2</span><div><p class="font-black text-[16px]">Scrivi il tuo nome</p><p class="text-[14px] text-slate-600 font-bold mt-0.5">Con la tastiera che compare, poi conferma. Il turno è attivo.</p></div></div>
+      <p class="font-black text-[15px] pt-2">🚬 PER OGNI VENDITA</p>
+      <div class="flex gap-3 items-start"><span class="shrink-0 w-10 h-10 rounded-full bg-slate-900 text-white font-black flex items-center justify-center">3</span><div><p class="font-black text-[16px]">Scansiona il pacchetto</p><p class="text-[14px] text-slate-600 font-bold mt-0.5">Spara il codice a barre del pacchetto che stai vendendo. Se ne vendi più di uno, scansionali tutti. Controlla che nome e prezzo sul tablet siano quelli giusti.</p></div></div><div class="flex gap-3 items-start"><span class="shrink-0 w-10 h-10 rounded-full bg-slate-900 text-white font-black flex items-center justify-center">4</span><div><p class="font-black text-[16px]">Scegli CONTANTI o CARTA</p><p class="text-[14px] text-slate-600 font-bold mt-0.5">Tocca 💶 CONTANTI o 💳 CARTA come ha pagato il cliente, poi premi CONCLUDI.</p></div></div><div class="flex gap-3 items-start"><span class="shrink-0 w-10 h-10 rounded-full bg-slate-900 text-white font-black flex items-center justify-center">5</span><div><p class="font-black text-[16px]">Batti lo scontrino sulla cassa vera</p><p class="text-[14px] text-slate-600 font-bold mt-0.5">Alla cassa del negozio batti lo stesso importo (es. 5,80 €) con il tasto <b>ESENTE</b>, poi premi <b>CONTANTI</b> oppure <b>BANCOMAT</b> (POS) come sul tablet.</p></div></div>
+      <div class="bg-yellow-50 border-2 border-yellow-400 rounded-2xl p-4">
+        <p class="font-black text-[15px]">ESEMPIO</p>
+        <p class="font-bold text-[14px] mt-1">Il cliente compra 1 Chesterfield Blu e paga col bancomat: scansioni il pacchetto → scegli CARTA → CONCLUDI → alla cassa vera batti 5,80 € ESENTE → BANCOMAT.</p>
+      </div>
+      <p class="font-black text-[15px] pt-2">🔒 A FINE TURNO</p>
+      <div class="flex gap-3 items-start"><span class="shrink-0 w-10 h-10 rounded-full bg-slate-900 text-white font-black flex items-center justify-center">6</span><div><p class="font-black text-[16px]">Tocca CHIUDI TURNO</p><p class="text-[14px] text-slate-600 font-bold mt-0.5">Il tablet mostra quante sigarette hai venduto. Confermando il turno si chiude. Non devi contare i soldi nel tablet.</p></div></div>
+      <p class="font-black text-[15px] pt-2">⚠ SE SBAGLI</p>
+      <ul class="list-disc pl-6 text-[14px] font-bold text-slate-700 space-y-1">
+        <li>Pacchetto scansionato per errore o cliente che ci ripensa: <b>non</b> premere CONCLUDI, togli il pacchetto dal carrello.</li>
+        <li>Vendita già confermata ma sbagliata: avvisa il titolare, che la storna dai Resoconti. Anche la cassa vera va corretta.</li>
+        <li>Pacchetto che il tablet non riconosce: <b>non</b> venderlo "a mano" senza dirlo; avvisa il titolare.</li>
+        <li>Mai chiudere il turno senza aver battuto tutto sulla cassa vera.</li>
+      </ul>
+      <p class="text-[12px] font-bold text-slate-500">Il titolare confronta ogni giorno le vendite del tablet con gli scontrini della cassa vera: devono coincidere.</p>
+    </div>
+    <div class="p-4 border-t"><button onclick="closeIstruzioni()" class="w-full bg-slate-900 text-white rounded-2xl py-4 font-black text-[16px]">HO CAPITO</button></div>
+  </div>
+</div>
 <div id="turnoReportModal" class="modal hidden fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4">
   <div class="bg-white rounded-3xl max-w-[640px] w-full max-h-[85vh] flex flex-col">
     <div class="p-6 border-b flex justify-between items-center">
@@ -445,6 +479,7 @@ input,select,textarea{min-height:58px;font-size:18px}
       <div class="col-span-12 lg:col-span-7 bg-white rounded-3xl border p-6">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <h2 class="font-black text-[18px] tracking-wider">CASSA <span id="cassaTurnoBadge" class="ml-2 bg-red-100 text-red-600 px-3 py-1 rounded-full text-[11px]">NESSUN TURNO</span></h2>
+          <button onclick="openIstruzioni()" class="bg-blue-600 text-white rounded-2xl px-5 py-3 font-black text-[13px]">📘 ISTRUZIONI</button>
         </div>
         <input id="pistolaCassa" autocomplete="off" inputmode="none" style="position:fixed;left:10px;top:10px;width:1px;height:1px;opacity:0.01;z-index:1;" autofocus>
         <div id="scanBig" onclick="refocus()" class="mt-2 rounded-2xl border-2 border-slate-200 bg-slate-50 px-3 py-2"></div>
@@ -1228,6 +1263,8 @@ function renderScanBig(flash){
 }
 
 /* ---------- menu e icona pistola ---------- */
+function openIstruzioni(){ $('istruzioniModal').classList.remove('hidden'); }
+function closeIstruzioni(){ $('istruzioniModal').classList.add('hidden'); refocus(); }
 function openMenu(){ $('menuDrawer').classList.remove('hidden'); }
 function closeMenu(){ $('menuDrawer').classList.add('hidden'); refocus(); }
 function menuGo(t){ $('menuDrawer').classList.add('hidden'); openTab(t); }

@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-const APP_VERSION='v24';
+const APP_VERSION='v25';
 try{
   if(localStorage.getItem('bt_ver')!==APP_VERSION){
     if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
@@ -1383,11 +1383,19 @@ async function exportOrdineLogista(){
   try{
     if(!window.XLSX) await caricaScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
     const cat=await (await fetch('./catalogo_logista.json')).json();
-    const perCodice=new Map(); lista.forEach(o=>{ const k=aamsKey(o.p.codice_aams); if(k) perCodice.set(k,(perCodice.get(k)||0)+o.stecche); });
+    const perCodice=new Map(); lista.forEach(o=>{ const k=aamsKey(o.p.codice_aams); if(k) perCodice.set(k,(perCodice.get(k)||0)+o.pezzi); });
     const usati=new Set();
+    /* Quantita nel file = numero di unita minime x "Unita Minima [Kgc]" (es. 1 stecca = 0,2 ; 2 = 0,4).
+       Pacchetti per unita minima: dal peso (*30GR) o 20 sigarette per pacchetto (0,02 Kgc); altrimenti 10. */
+    const pacchettiPerUnita=(desc,tipo,u)=>{
+      const g=/\*\s*(\d+)\s*GR/i.exec(desc); if(g && +g[1]>0){ const n=Math.round(u/(+g[1]/1000)); return n>0?n:10; }
+      if(/^SIGARETTE$/.test(tipo) && /\*(AST20|CART20|20PZ|2A)/i.test(desc)){ const n=Math.round(u/0.02); return n>0?n:10; }
+      return 10;
+    };
     const aoa=[cat.head];
-    cat.rows.forEach(r=>{ const k=aamsKey(r[0]); const q=perCodice.get(k); if(q){ usati.add(k); }
-      aoa.push([r[0], q||'', r[1], r[2], r[3], r[4], r[5], r[6]]); });
+    cat.rows.forEach(r=>{ const k=aamsKey(r[0]); const pezzi=perCodice.get(k); let q='';
+      if(pezzi){ usati.add(k); const u=parseFloat(r[3])||0; const unita=Math.max(1,Math.ceil(pezzi/pacchettiPerUnita(r[1],r[2],u))); q=Math.round(unita*u*1000)/1000; }
+      aoa.push([r[0], q, r[1], r[2], r[3], r[4], r[5], r[6]]); });
     const mancanti=lista.filter(o=>!usati.has(aamsKey(o.p.codice_aams)));
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Ordine');

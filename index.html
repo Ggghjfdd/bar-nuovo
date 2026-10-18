@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-const APP_VERSION='v23';
+const APP_VERSION='v24';
 try{
   if(localStorage.getItem('bt_ver')!==APP_VERSION){
     if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
@@ -1113,13 +1113,14 @@ async function chiudiTurno(){
   await loadTurno();
   const t = S.turno;
   if(!t){ showWarning('Nessun turno aperto.','TURNO'); render(); return; }
-  const msg = 'Turno: '+t.nome+'\n\nSIGARETTE VENDUTE: '+t.pezzi+' pz';
+  const riep = 'SIGARETTE VENDUTE: '+t.pezzi+' pz\nVENDITE (scontrini): '+t.scontrini+'\nINCASSO TOTALE: '+eur(t.incasso)+'\n   di cui contanti '+eur(t.contanti)+'\n   di cui carta '+eur(t.carta);
+  const msg = 'Turno: '+t.nome+'\n\n'+riep+'\n\nControlla che l\'incasso coincida con la cassa vera.';
   if(!(await askConfirm(msg,{title:'CHIUDERE IL TURNO?',ok:'CHIUDI TURNO',danger:true}))) return;
   try{
     const { error } = await supa.rpc('chiudi_turno', { p_id:t.id, p_contanti:null });
     if(error) throw error;
     await loadTurno(); render();
-    showSuccess('Turno chiuso.\nSigarette vendute: '+t.pezzi+' pz','TURNO CHIUSO');
+    showSuccess('Turno chiuso: '+t.nome+'\n\n'+riep,'TURNO CHIUSO');
   }catch(e){ await loadTurno(); showError(errMsg(e),'TURNO'); }
 }
 function updateTurnoUI(){

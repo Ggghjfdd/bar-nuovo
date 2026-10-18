@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-const APP_VERSION='v25';
+const APP_VERSION='v26';
 try{
   if(localStorage.getItem('bt_ver')!==APP_VERSION){
     if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
@@ -238,6 +238,7 @@ input,select,textarea{min-height:58px;font-size:18px}
     <button onclick="menuGo('report')" id="b-report" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">RESOCONTI + TURNI</button>
     <button onclick="closeMenu();openIstruzioni()" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-blue-600 text-white">📘 ISTRUZIONI</button>
     <button onclick="menuGo('mag')" id="b-mag" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">MAGAZZINO</button>
+  <p class="mt-auto text-center text-[11px] font-bold text-slate-400">Versione app: <span id="verApp"></span></p>
   </nav>
 </div>
 
@@ -1266,7 +1267,7 @@ function renderScanBig(flash){
 /* ---------- menu e icona pistola ---------- */
 function openIstruzioni(){ $('istruzioniModal').classList.remove('hidden'); }
 function closeIstruzioni(){ $('istruzioniModal').classList.add('hidden'); refocus(); }
-function openMenu(){ $('menuDrawer').classList.remove('hidden'); }
+function openMenu(){ $('verApp').textContent=APP_VERSION; $('menuDrawer').classList.remove('hidden'); }
 function closeMenu(){ $('menuDrawer').classList.add('hidden'); refocus(); }
 function menuGo(t){ $('menuDrawer').classList.add('hidden'); openTab(t); }
 /* La pistola e' una tastiera USB/Bluetooth: il browser non puo' vederla.
@@ -1399,7 +1400,8 @@ async function exportOrdineLogista(){
     const mancanti=lista.filter(o=>!usati.has(aamsKey(o.p.codice_aams)));
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Ordine');
-    XLSX.writeFile(wb,'Catalogo_Prodotti_ordine_'+localDay()+'.xls',{bookType:'biff8'});
+    const ora=new Date(); const hhmm=String(ora.getHours()).padStart(2,'0')+String(ora.getMinutes()).padStart(2,'0');
+    XLSX.writeFile(wb,'Ordine_Logista_'+localDay()+'_'+hhmm+'.xls',{bookType:'biff8'});
     if(mancanti.length) showWarning('Questi prodotti NON sono nel file (AAMS mancante o non nel catalogo), aggiungili a mano sul portale:\n'+mancanti.map(o=>'• '+o.p.marca+' ('+o.stecche+' st)').join('\n'),'ATTENZIONE');
     else toast('File ordine creato ('+usati.size+' prodotti)');
   }catch(e){ showError('Non riesco a creare il file .xls (serve internet la prima volta). Usa CSV ORDINE.'); }

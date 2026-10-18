@@ -331,6 +331,7 @@ input,select,textarea{min-height:58px;font-size:18px}
       </div>
       <div id="ordineSummary" class="mt-4 grid grid-cols-3 gap-3"></div>
     </div>
+    <div id="ordineAvviso" class="px-4 pt-3"></div>
     <div id="ordineList" class="p-4 overflow-auto space-y-2 flex-1"></div>
     <div class="p-4 border-t bg-yellow-50 flex gap-2">
       <button onclick="exportOrdineLogista()" class="bg-yellow-400 border-2 border-yellow-500 rounded-2xl px-6 py-3 font-black text-[12px]">EXPORT LOGISTA (.xls)</button><button onclick="exportOrdineCSV()" class="bg-slate-900 text-white rounded-2xl px-6 py-3 font-black text-[12px]">CSV ORDINE</button>
@@ -548,7 +549,7 @@ input,select,textarea{min-height:58px;font-size:18px}
       <h4 class="mt-6 font-black text-[16px]">📦 PRODOTTI</h4>
       <p class="text-[12px] text-slate-500 font-bold">Tocca <b>MODIFICA</b> su un prodotto per cambiare tutto: nome, barcode, AAMS, Logista, categoria, prezzo, giacenza, scorta.</p>
       <input id="searchInv" oninput="renderInv()" placeholder="Cerca marca, nome, EAN, AAMS, LOGISTA..." class="mt-3 w-full bg-slate-50 border-2 rounded-2xl px-5 py-4 font-bold text-[14px]">
-      <div class="mt-2 flex gap-2"><button onclick="$('searchInv').value='';renderInv()" class="chip bg-white border-2 rounded-full px-4 h-9 min-h-0 font-black text-[11px]">TUTTI</button><button onclick="$('searchInv').value='NOBARCODE';renderInv()" class="chip bg-red-100 text-red-600 border-2 border-red-300 rounded-full px-4 h-9 min-h-0 font-black text-[11px]">SOLO SENZA BARCODE</button></div>
+      <div class="mt-2 flex gap-2"><button onclick="$('searchInv').value='';renderInv()" class="chip bg-white border-2 rounded-full px-4 h-9 min-h-0 font-black text-[11px]">TUTTI</button><button onclick="$('searchInv').value='NOBARCODE';renderInv()" class="chip bg-red-100 text-red-600 border-2 border-red-300 rounded-full px-4 h-9 min-h-0 font-black text-[11px]">SOLO SENZA BARCODE</button><button onclick="$('searchInv').value='SENZAAAMS';renderInv()" class="chip bg-orange-100 text-orange-700 border-2 border-orange-300 rounded-full px-4 h-9 min-h-0 font-black text-[11px]">SOLO SENZA AAMS</button></div>
       <div id="inventoryList" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3"></div>
     </div>
   </div>
@@ -1263,7 +1264,7 @@ function invCard(p){
   const st=statoProd(p), ult=p.ultimo?fmtDate(p.ultimo):'MAI';
   return `<div class="bg-slate-50 border rounded-xl p-3 flex justify-between items-center gap-2">
     <div class="min-w-0"><p class="font-bold text-[12px]">${esc(p.marca)} ${esc(p.nome)}</p>
-      <p class="font-mono text-[10px] text-slate-500 break-all">${/^NOBARCODE_/.test(p.code)?'<span class="bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-black">SENZA BARCODE</span>':'EAN:'+esc(p.code)} AAMS:${esc(p.codice_aams)} LOG:${esc(p.codice_logista)} Scorta:${p.scorta} Prezzo:${eur(p.prezzo)}</p>
+      <p class="font-mono text-[10px] text-slate-500 break-all">${/^NOBARCODE_/.test(p.code)?'<span class="bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-black">SENZA BARCODE</span>':'EAN:'+esc(p.code)} ${String(p.codice_aams||'').trim()?'AAMS:'+esc(p.codice_aams):'<span class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-black">SENZA AAMS</span>'} LOG:${esc(p.codice_logista)} Scorta:${p.scorta} Prezzo:${eur(p.prezzo)}</p>
       <p class="text-[10px] mt-1"><span class="${st.c} px-2 py-0.5 rounded-full font-black">${st.t} - ${fmtGG(p)}</span> <span class="ml-2 text-slate-500">Ult. carico: ${ult} - Media: ${p.media.toFixed(2)}/gg</span></p></div>
     <div class="flex gap-1.5 items-center shrink-0 flex-wrap justify-end max-w-[150px] sm:max-w-none">
       <button data-edit="${esc(p.code)}" class="chip bg-white border-2 border-slate-900 px-3 h-11 min-h-0 rounded-xl font-black text-[12px]">MODIFICA</button>
@@ -1275,7 +1276,7 @@ function invCard(p){
 const sortCopertura = (a,b)=>{ const ga=copertura(a), gb=copertura(b); return ga===gb?0:(ga<gb?-1:1); };
 function renderInv(){
   const q=($('searchInv').value||'').toLowerCase().trim();
-  const list=S.inv.filter(p=>!q||hay(p).includes(q)).sort(sortCopertura);
+  const list=S.inv.filter(p=>q==='senzaaams'?!String(p.codice_aams||'').trim():(!q||hay(p).includes(q))).sort(sortCopertura);
   $('inventoryList').innerHTML = list.slice(0,200).map(invCard).join('') + (list.length>200?'<p class="col-span-full text-center text-[11px] text-slate-500">Mostrati 200 su '+list.length+': usa la ricerca</p>':'');
   $('totPezzi').textContent = S.inv.reduce((s,p)=>s+p.qty,0)+' pz';
 }
@@ -1323,7 +1324,9 @@ function renderOrdine(){
   const lista=calcOrdine();
   const valore=lista.reduce((s,o)=>s+o.p.prezzo*o.pezzi,0);
   $('ordineSummary').innerHTML = `<div class="bg-white border rounded-xl p-3 text-center"><p class="text-[10px] font-bold text-slate-500">DA ORDINARE</p><p class="font-black text-[18px]">${lista.length}</p></div><div class="bg-white border rounded-xl p-3 text-center"><p class="text-[10px] font-bold text-slate-500">STECCHE</p><p class="font-black text-[18px]">${lista.reduce((s,o)=>s+o.stecche,0)}</p></div><div class="bg-yellow-100 border rounded-xl p-3 text-center"><p class="text-[10px] font-bold">VALORE (prezzo vendita)</p><p class="font-black text-[18px]">${eur(valore)}</p></div>`;
-  $('ordineList').innerHTML = lista.length ? lista.map(o=>`<div class="bg-slate-50 border rounded-xl p-3 flex justify-between gap-2"><div class="min-w-0"><p class="font-bold text-[12px]">${esc(o.p.marca)} ${esc(o.p.nome)} <span class="bg-red-100 text-red-700 px-1.5 rounded text-[10px]">${fmtGG(o.p)} copertura</span></p><p class="font-mono text-[10px] text-slate-600 break-all">EAN:${esc(o.p.code)} AAMS:${esc(o.p.codice_aams)} LOG:${esc(o.p.codice_logista)} - Giac:${o.p.qty} Scorta:${o.p.scorta} → Finale:${o.finale} - Ult. carico:${o.p.ultimo?fmtDate(o.p.ultimo):'-'}</p></div><span class="bg-slate-900 text-white px-3 py-1 rounded-full text-[11px] font-bold h-fit whitespace-nowrap">${o.stecche} st</span></div>`).join('') : '<p class="text-center text-[12px] text-slate-400 py-6">Niente da ordinare.</p>';
+  const senza=lista.filter(o=>!String(o.p.codice_aams||'').trim()); 
+  $('ordineAvviso').innerHTML = senza.length?`<div class="bg-orange-100 border-2 border-orange-400 text-orange-800 rounded-xl p-3 text-[12px] font-black">⚠ ${senza.length} prodotti senza codice AAMS: non finiscono nel file .xls, aggiungili a mano sul portale:<br>${senza.map(o=>esc(o.p.marca)+' ('+o.stecche+' st)').join(' • ')}</div>`:'';
+  $('ordineList').innerHTML = lista.length ? lista.map(o=>`<div class="${String(o.p.codice_aams||'').trim()?'bg-slate-50':'bg-orange-50 border-orange-400 border-2'} border rounded-xl p-3 flex justify-between gap-2"><div class="min-w-0"><p class="font-bold text-[12px]">${esc(o.p.marca)} ${esc(o.p.nome)} <span class="bg-red-100 text-red-700 px-1.5 rounded text-[10px]">${fmtGG(o.p)} copertura</span></p><p class="font-mono text-[10px] text-slate-600 break-all">EAN:${esc(o.p.code)} ${String(o.p.codice_aams||'').trim()?'AAMS:'+esc(o.p.codice_aams):'<span class="bg-orange-500 text-white px-2 py-0.5 rounded-full font-black">SENZA AAMS - SCRIVILO A MANO</span>'} LOG:${esc(o.p.codice_logista)} - Giac:${o.p.qty} Scorta:${o.p.scorta} → Finale:${o.finale} - Ult. carico:${o.p.ultimo?fmtDate(o.p.ultimo):'-'}</p></div><span class="bg-slate-900 text-white px-3 py-1 rounded-full text-[11px] font-bold h-fit whitespace-nowrap">${o.stecche} st</span></div>`).join('') : '<p class="text-center text-[12px] text-slate-400 py-6">Niente da ordinare.</p>';
 }
 /* Export ordine nel formato del catalogo Logista (.xls): stesso template, colonna Quantita compilata (in stecche) */
 function caricaScript(url){ return new Promise((ok,ko)=>{ const e=document.createElement('script'); e.src=url; e.onload=ok; e.onerror=()=>ko(new Error('script')); document.head.appendChild(e); }); }

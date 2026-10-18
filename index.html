@@ -8,13 +8,13 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0f172a">
-<title>BAR TABACCHI V17</title>
+<title>BAR TABACCHI</title>
 <link rel="manifest" href="./manifest.json?v=v16">
 <link rel="icon" href="./icons/icon.svg?v=v16" type="image/svg+xml">
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-const APP_VERSION='v17';
+const APP_VERSION='v21';
 try{
   if(localStorage.getItem('bt_ver')!==APP_VERSION){
     if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
@@ -25,6 +25,25 @@ try{
     window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js?v='+APP_VERSION).catch(()=>{});});
   }
 }catch(e){}
+/* Aggiornamento automatico: controlla version.json e ricarica da sola quando e' fermo (nessun carrello, nessuna finestra aperta) */
+(function(){
+  let busy=false;
+  async function ctrl(){
+    if(busy) return;
+    try{
+      const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'}); if(!r.ok) return;
+      const v=(await r.json()).v; if(!v||v===APP_VERSION) return;
+      if(typeof S!=='undefined' && ((S.carrello&&S.carrello.length)||S.finalizing)) return;
+      if(document.querySelector('.modal:not(.hidden)')) return;
+      busy=true;
+      try{ if('serviceWorker' in navigator){ (await navigator.serviceWorker.getRegistrations()).forEach(x=>x.unregister()); } if('caches' in window){ (await caches.keys()).forEach(c=>caches.delete(c)); } }catch(e){}
+      location.reload();
+    }catch(e){}
+  }
+  setInterval(ctrl,120000);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) ctrl(); });
+  window.addEventListener('load',()=>setTimeout(ctrl,5000));
+})();
 /* ============================================================
    SPARA BARCODE: import guidato prodotti (tab CARICO)
    Riusa: supa, T, S, openNumpad, askConfirm, showSuccess/showError,
@@ -1046,35 +1065,27 @@ async function finalizza(){
 /* ---------- turni ---------- */
 function apriInizioTurno(){
   if(S.turno){ showWarning('C\'è già un turno aperto:\n'+S.turno.nome,'TURNO APERTO'); return; }
-  openAlpha('NOME TURNO / DIPENDENTE','', nome=>{
-    openNumpad({ label:'FONDO CASSA € (vuoto = 0)', decimal:true, allowEmpty:true, onOk: async v=>{
-      const fondo = v==='' ? 0 : num(v);
-      try{
-        const { error } = await supa.rpc('apri_turno', { p_nome:nome, p_fondo:fondo });
-        if(error) throw error;
-        await loadTurno(); render();
-        showSuccess('Turno iniziato:\n'+nome+(fondo>0?'\nFondo cassa '+eur(fondo):''),'TURNO APERTO');
-      }catch(e){ await loadTurno(); showError(errMsg(e),'TURNO'); }
-    }});
+  openAlpha('NOME TURNO / DIPENDENTE','', async nome=>{
+    try{
+      const { error } = await supa.rpc('apri_turno', { p_nome:nome, p_fondo:0 });
+      if(error) throw error;
+      await loadTurno(); render();
+      showSuccess('Turno iniziato:\n'+nome,'TURNO APERTO');
+    }catch(e){ await loadTurno(); showError(errMsg(e),'TURNO'); }
   });
 }
 async function chiudiTurno(){
   await loadTurno();
   const t = S.turno;
   if(!t){ showWarning('Nessun turno aperto.','TURNO'); render(); return; }
-  const atteso = Number(t.fondo_cassa)+Number(t.contanti);
-  openNumpad({ label:'CONTANTI IN CASSA (atteso '+eur(atteso)+') - vuoto = non contato', decimal:true, allowEmpty:true, onOk: async v=>{
-    const contati = v==='' ? null : num(v);
-    let msg = 'Turno: '+t.nome+'\nScontrini: '+t.scontrini+'\nIncasso: '+eur(t.incasso)+'\n  contanti '+eur(t.contanti)+'\n  carta '+eur(t.carta)+'\nFondo cassa: '+eur(t.fondo_cassa)+'\nAtteso in cassa: '+eur(atteso);
-    if(contati!==null){ const d=round2(contati-atteso); msg += '\nContati: '+eur(contati)+'\nDIFFERENZA: '+(d>0?'+':'')+eur(d).replace('€ ','€ '); }
-    if(!(await askConfirm(msg,{title:'CHIUDERE IL TURNO?',ok:'CHIUDI TURNO',danger:true}))) return;
-    try{
-      const { error } = await supa.rpc('chiudi_turno', { p_id:t.id, p_contanti:contati });
-      if(error) throw error;
-      await loadTurno(); render();
-      showSuccess('Turno chiuso.','TURNO CHIUSO');
-    }catch(e){ await loadTurno(); showError(errMsg(e),'TURNO'); }
-  }});
+  const msg = 'Turno: '+t.nome+'\n\nSIGARETTE VENDUTE: '+t.pezzi+' pz';
+  if(!(await askConfirm(msg,{title:'CHIUDERE IL TURNO?',ok:'CHIUDI TURNO',danger:true}))) return;
+  try{
+    const { error } = await supa.rpc('chiudi_turno', { p_id:t.id, p_contanti:null });
+    if(error) throw error;
+    await loadTurno(); render();
+    showSuccess('Turno chiuso.\nSigarette vendute: '+t.pezzi+' pz','TURNO CHIUSO');
+  }catch(e){ await loadTurno(); showError(errMsg(e),'TURNO'); }
 }
 function updateTurnoUI(){
   const t=S.turno;
@@ -1106,10 +1117,8 @@ async function apriResocontoTurno(id){
     const atteso = Number(t.fondo_cassa)+Number(t.contanti);
     const box=(l,v,cls='bg-white border-2')=>`<div class="${cls} rounded-xl p-3 text-center"><p class="text-[9px] text-slate-400 font-bold">${l}</p><p class="font-black text-[17px]">${v}</p></div>`;
     let html = '<div class="grid grid-cols-3 gap-2 mb-2">'+box('INCASSO',eur(t.incasso),'bg-slate-900 text-white')+box('CONTANTI',eur(t.contanti))+box('CARTA',eur(t.carta))+'</div>';
-    html += '<div class="grid grid-cols-3 gap-2 mb-4">'+box('PEZZI',t.pezzi)+box('SCONTRINI',t.scontrini,'bg-yellow-100 border')+box('FONDO CASSA',eur(t.fondo_cassa))+'</div>';
-    html += `<div class="bg-slate-50 border rounded-xl p-3 mb-4 text-[13px] font-bold">Atteso in cassa: ${eur(atteso)}`;
-    if(t.contanti_contati!=null){ const d=round2(Number(t.contanti_contati)-atteso); html += ` · Contati: ${eur(t.contanti_contati)} · Differenza: <span class="${d===0?'text-emerald-600':'text-red-600'}">${d>0?'+':''}${eur(d)}</span>`; }
-    html += '</div><div class="space-y-2">';
+    html += '<div class="grid grid-cols-2 gap-2 mb-4">'+box('PEZZI',t.pezzi)+box('SCONTRINI',t.scontrini,'bg-yellow-100 border')+'</div>';
+    html += '<div class="space-y-2">';
     html += vend.map(v=>`<div class="bg-slate-50 border rounded-xl p-2.5 flex justify-between gap-2 text-[11px] ${v.stornata?'opacity-50':''}"><span class="min-w-0 break-words">${fmtTime(v.created_at)} ${v.pagamento==='carta'?'💳':'💶'} - ${esc((v.items||[]).map(i=>i.marca+' x'+i.qty).join(', '))}${v.stornata?' <b class="text-red-600">STORNATA</b>':''}</span><span class="font-black whitespace-nowrap ${v.stornata?'line-through':''}">${eur(v.totale)}</span></div>`).join('');
     html += '</div>';
     $('turnoReportBody').innerHTML = html;

@@ -547,6 +547,7 @@ input,select,textarea{min-height:58px;font-size:18px}
         </div>
       </div>
       <input id="searchInv" oninput="renderInv()" placeholder="Cerca marca, nome, EAN, AAMS, LOGISTA..." class="mt-5 w-full bg-slate-50 border-2 rounded-2xl px-5 py-4 font-bold text-[14px]">
+      <div class="mt-2 flex gap-2"><button onclick="$('searchInv').value='';renderInv()" class="chip bg-white border-2 rounded-full px-4 h-9 min-h-0 font-black text-[11px]">TUTTI</button><button onclick="$('searchInv').value='NOBARCODE';renderInv()" class="chip bg-red-100 text-red-600 border-2 border-red-300 rounded-full px-4 h-9 min-h-0 font-black text-[11px]">SOLO SENZA BARCODE</button></div>
       <div id="inventoryList" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3"></div>
     </div>
   </div>
@@ -1261,9 +1262,10 @@ function invCard(p){
   const st=statoProd(p), ult=p.ultimo?fmtDate(p.ultimo):'MAI';
   return `<div class="bg-slate-50 border rounded-xl p-3 flex justify-between items-center gap-2">
     <div class="min-w-0"><p class="font-bold text-[12px]">${esc(p.marca)} ${esc(p.nome)}</p>
-      <p class="font-mono text-[10px] text-slate-500 break-all">EAN:${esc(p.code)} AAMS:${esc(p.codice_aams)} LOG:${esc(p.codice_logista)} Scorta:${p.scorta}</p>
+      <p class="font-mono text-[10px] text-slate-500 break-all">${/^NOBARCODE_/.test(p.code)?'<span class="bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-black">SENZA BARCODE</span>':'EAN:'+esc(p.code)} AAMS:${esc(p.codice_aams)} LOG:${esc(p.codice_logista)} Scorta:${p.scorta} Prezzo:${eur(p.prezzo)}</p>
       <p class="text-[10px] mt-1"><span class="${st.c} px-2 py-0.5 rounded-full font-black">${st.t} - ${fmtGG(p)}</span> <span class="ml-2 text-slate-500">Ult. carico: ${ult} - Media: ${p.media.toFixed(2)}/gg</span></p></div>
-    <div class="flex gap-1.5 items-center shrink-0">
+    <div class="flex gap-1.5 items-center shrink-0 flex-wrap justify-end max-w-[150px] sm:max-w-none">
+      <button data-edit="${esc(p.code)}" class="chip bg-white border-2 border-slate-900 px-3 h-11 min-h-0 rounded-xl font-black text-[12px]">MODIFICA</button>
       <button data-act="setQty" data-code="${esc(p.code)}" class="chip bg-yellow-400 border-2 border-yellow-500 text-black px-3 h-11 min-h-0 rounded-xl font-black text-[12px]">✏️ ${p.qty}</button>
       <button data-act="plus" data-code="${esc(p.code)}" class="chip w-10 h-10 min-h-0 bg-slate-900 text-white rounded-full font-bold">+</button>
       <button data-act="minus" data-code="${esc(p.code)}" class="chip w-10 h-10 min-h-0 bg-white border-2 rounded-full font-bold">−</button>

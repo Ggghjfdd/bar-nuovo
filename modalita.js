@@ -92,6 +92,12 @@ async function eanLink(code, p){
   if(r.prod){ showWarning('Questo codice appartiene già a:\n'+nomeP(r.prod)+'\n\nNon posso collegarlo anche a '+nomeP(p)+'.','CODICE GIÀ USATO'); return false; }
   if(r.ambiguous){ showWarning('Il codice corrisponde a più prodotti: non lo collego.','CODICE AMBIGUO'); return false; }
   if(!gs1ok(code) && !(await askConfirm('Il codice "'+code+'" non è un EAN valido (cifra di controllo errata o lunghezza insolita).\nPotrebbe essere stato letto male.\n\nCollegarlo comunque a '+nomeP(p)+'?',{title:'CODICE DUBBIO',ok:'COLLEGA COMUNQUE'}))) return false;
+  if(/^NOBARCODE_/.test(p.code)){
+    /* prodotto senza barcode: il codice sparato diventa il suo barcode (collegamenti e storico restano) */
+    const { error } = await supa.from('prodotti_master').update({ barcode:code }).eq('barcode', p.code);
+    if(error) throw error;
+    return true;
+  }
   const { error } = await supa.rpc('associa_codice', { p_codice:code, p_barcode:p.code });
   if(error) throw error;
   return true;
@@ -259,6 +265,7 @@ const ACTIONS = {
     hide();
   },
   skip: ()=>{ MD.skipped++; MD.pos++; eanShow(); },
+  peSave: ()=>peSave(),
   pick: v=>pickChosen(v),
   invPick: v=>{ const p=S.byCode.get(v); if(!p) return; invRender(); invAsk(p); },
   invSearch: ()=>invSearch(),
@@ -269,6 +276,66 @@ const ACTIONS = {
   invReset: async ()=>{ if(await askConfirm('Cancellare tutta la conta fatta finora?',{title:'AZZERA CONTA',ok:'AZZERA',danger:true})){ invClear(); invRender(); } }
 };
 
-window.eanStart = eanStart; window.eanPick = eanPick; window.invStart = invStart;
+
+/* ============================================================
+   MODIFICA PRODOTTO (dal Magazzino): tutti i campi, barcode compreso
+   ============================================================ */
+function peField(id,label,val,extra=''){
+  return `<label class="block"><span class="text-[11px] font-black text-slate-500">${label}</span><input id="${id}" value="${esc(val)}" ${extra} class="w-full border-2 rounded-2xl px-4 py-3 font-bold text-[16px] ${extra.includes('readonly')?'bg-yellow-50':''}"></label>`;
+}
+function prodEdit(code){
+  const p=S.byCode.get(code); if(!p) return;
+  if(!S.loaded){ showWarning('Catalogo non ancora caricato.','ATTENDI'); return; }
+  MD.mode='edit'; MD.editing=p.code; MD.busy=false;
+  open('MODIFICA PRODOTTO'); sub(p.code);
+  const senza=/^NOBARCODE_/.test(p.code);
+  $('mdBody').innerHTML =
+    `<div class="grid grid-cols-2 gap-3">
+       <div class="col-span-2">${peField('peMarca','PRODOTTO *',p.marca)}</div>
+       <div class="col-span-2">${peField('peBarcode','BARCODE (tocca e spara con la pistola)',p.code,'onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" autocomplete="off"')}
+         <p class="text-[11px] font-bold mt-1 ${senza?'text-red-600':'text-slate-500'}">${senza?'Questo prodotto non ha ancora un barcode: sparalo qui quando vuoi.':'Se cambi il barcode il prodotto prende il nuovo codice; giacenza, storico e collegamenti restano.'}</p></div>
+       ${peField('peAams','CODICE AAMS',p.codice_aams||'')}
+       ${peField('peLog','CODICE LOGISTA',p.codice_logista||'')}
+       ${peField('pePrezzo','PREZZO € *',String(p.prezzo||''),'readonly data-numpad="PREZZO €" data-decimal="1" placeholder="tocca"')}
+       ${peField('peCat','CATEGORIA',p.categoria||'KS')}
+       ${peField('peQty','GIACENZA (pezzi)',String(p.qty),'readonly data-numpad="GIACENZA" placeholder="tocca"')}
+       ${peField('peScorta','SCORTA MINIMA',String(p.scorta),'readonly data-numpad="SCORTA" placeholder="tocca"')}
+     </div>
+     <div class="grid grid-cols-2 gap-3 mt-5">${btn('close','ANNULLA',BTN_LIGHT)}${btn('peSave','SALVA',BTN_OK)}</div>`;
+}
+async function peSave(){
+  const old=S.byCode.get(MD.editing); if(!old||MD.busy) return;
+  const marca=$('peMarca').value.replace(/\s+/g,' ').trim().toUpperCase();
+  const nuovo=$('peBarcode').value.replace(/\s+/g,'').toUpperCase();
+  const aams=$('peAams').value.trim().toUpperCase(), log=$('peLog').value.trim();
+  const cat=($('peCat').value.trim().toUpperCase())||'KS';
+  const prezzo=num($('pePrezzo').value), qty=parseInt($('peQty').value,10), scorta=parseInt($('peScorta').value,10);
+  if(!marca){ showWarning('Il nome del prodotto è obbligatorio.','DATI MANCANTI'); return; }
+  if(isNaN(prezzo)||prezzo<=0||prezzo>=1000){ showWarning('Inserisci un prezzo valido (maggiore di 0).','DATI MANCANTI'); return; }
+  if(isNaN(qty)||qty<0||isNaN(scorta)||scorta<0){ showWarning('Giacenza e scorta devono essere numeri (0 o più).','DATI MANCANTI'); return; }
+  if(!/^[0-9A-Z_]{3,30}$/.test(nuovo)){ showWarning('Il barcode può contenere solo cifre e lettere (da 3 a 30 caratteri).','BARCODE NON VALIDO'); return; }
+  const cambiaBc = nuovo!==old.code;
+  if(cambiaBc){
+    const altro=S.byCode.get(nuovo);
+    if(altro){ showWarning('Questo barcode è già di un altro prodotto:\n'+nomeP(altro)+'\n\nSe sono lo stesso prodotto, tieni un solo record.','BARCODE GIÀ USATO'); return; }
+    if(!gs1ok(nuovo) && !/^NOBARCODE_/.test(nuovo) && !(await askConfirm('Il codice "'+nuovo+'" non è un EAN valido (cifra di controllo errata o lunghezza insolita).\nPotrebbe essere stato letto male.\n\nSalvarlo comunque?',{title:'CODICE DUBBIO',ok:'SALVA COMUNQUE'}))) return;
+  }
+  const upd={ marca, nome:'', prezzo, categoria:cat, codice_aams:aams||null, codice_logista:log||null, scorta };
+  if(cambiaBc) upd.barcode=nuovo;
+  MD.busy=true;
+  try{
+    const { error } = await supa.from('prodotti_master').update(upd).eq('barcode', old.code);
+    if(error){ if(error.code==='23505') throw new Error('Esiste già un prodotto con questo barcode.'); throw error; }
+    if(qty!==old.qty){
+      const r = await supa.rpc('imposta_giacenza', { p_barcode:nuovo, p_qty:qty });
+      if(r.error) throw r.error;
+    }
+    await loadInventory(true); hide(); toast('SALVATO', marca, 1500);
+  }catch(e){ showError(errMsg(e),'SALVATAGGIO'); }
+  MD.busy=false;
+}
+document.addEventListener('click', e=>{ const b=e.target.closest('[data-edit]'); if(b) prodEdit(b.dataset.edit); });
+
+window.eanStart = eanStart; window.eanPick = eanPick; window.invStart = invStart; window.prodEdit = prodEdit;
 window.__mdTest = { gs1ok, haEan, MD };
 })();

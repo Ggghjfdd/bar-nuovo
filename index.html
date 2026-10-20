@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ $('sbBarcode').addEventListe
 <style>
 *{font-family:Inter,sans-serif;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;width:100%;overflow-x:hidden;background:#f1f5f9;touch-action:manipulation}
-body{padding-top:env(safe-area-inset-top);padding-bottom:110px;font-size:18px}
+body{padding-top:env(safe-area-inset-top);padding-bottom:24px;font-size:18px}
 button{min-height:58px;touch-action:manipulation;transition:.15s}
 button:active{transform:scale(.97)}
 input,select,textarea{min-height:58px;font-size:18px}
@@ -217,12 +217,13 @@ input,select,textarea{min-height:58px;font-size:18px}
       <button id="menuBtn" onclick="openMenu()" aria-label="Menu" class="w-14 h-14 min-h-0 shrink-0 bg-white rounded-2xl flex flex-col items-center justify-center gap-[6px]">
         <span class="block w-7 h-[4px] bg-slate-900 rounded"></span><span class="block w-7 h-[4px] bg-slate-900 rounded"></span><span class="block w-7 h-[4px] bg-slate-900 rounded"></span>
       </button>
-      <div class="min-w-0">
+      <div class="min-w-0 hidden sm:block">
         <h1 class="text-white font-black text-[14px] leading-tight">BAR TABACCHI</h1>
         <p id="headerTurnoInfo" class="text-slate-400 text-[11px] font-bold truncate">NESSUN TURNO APERTO</p>
       </div>
     </div>
     <div class="flex items-center gap-2 shrink-0">
+      <button id="turnoChip" onclick="openTurnoSheet()" class="bg-red-500 text-white px-3 min-h-0 h-12 max-w-[130px] rounded-2xl text-[11px] font-black leading-tight">▶ INIZIA TURNO</button>
       <button id="scanIcon" onclick="refocus();updateScanIcon()" aria-label="Pistola" title="Pistola" class="w-12 h-12 min-h-0 shrink-0 rounded-full bg-red-500 flex items-center justify-center">
         <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14" stroke-width="1.8"/></svg>
       </button>
@@ -242,15 +243,20 @@ input,select,textarea{min-height:58px;font-size:18px}
   </nav>
 </div>
 
-<div id="turnoBar" class="fixed bottom-0 left-0 right-0 z-[60] bg-white border-t-4 border-slate-900 shadow-[0_-8px_30px_rgba(0,0,0,0.2)] px-3 py-3 flex gap-2" style="padding-bottom:calc(12px + env(safe-area-inset-bottom))">
-  <div class="flex-1 bg-slate-900 text-white rounded-2xl px-4 py-3 flex flex-col justify-center min-w-0">
-    <p class="text-[10px] font-bold text-slate-400 tracking-widest">TURNO ATTUALE</p>
-    <p id="turnoBarNome" class="font-black text-[15px] truncate">NESSUNO - INIZIA UN TURNO</p>
-    <p id="turnoBarOra" class="text-[11px] font-bold text-slate-300">-</p>
+<div id="turnoSheet" class="modal hidden fixed inset-0 z-[235] bg-black/60 flex items-center justify-center p-4" onclick="if(event.target.id==='turnoSheet') closeTurnoSheet()">
+  <div class="bg-white rounded-3xl w-full max-w-[460px] p-5 shadow-2xl">
+    <div class="flex justify-between items-center mb-3"><h3 class="font-black text-[20px]">TURNO</h3><button onclick="closeTurnoSheet()" aria-label="Chiudi" class="w-12 h-12 min-h-0 bg-slate-100 rounded-full font-black text-xl">×</button></div>
+    <div class="bg-slate-900 text-white rounded-2xl px-4 py-3 mb-3">
+      <p class="text-[10px] font-bold text-slate-400 tracking-widest">TURNO ATTUALE</p>
+      <p id="turnoBarNome" class="font-black text-[16px] break-words">NESSUNO - INIZIA UN TURNO</p>
+      <p id="turnoBarOra" class="text-[12px] font-bold text-slate-300">-</p>
+    </div>
+    <div class="grid gap-2">
+      <button id="btnIniziaTurno" onclick="closeTurnoSheet();apriInizioTurno()" class="bg-emerald-500 text-white rounded-2xl px-6 py-5 font-black text-[16px]">INIZIA TURNO</button>
+      <button id="btnResocontoTurno" onclick="closeTurnoSheet();apriResocontoTurnoCorrente()" class="hidden bg-yellow-400 text-black border-2 border-black rounded-2xl px-6 py-4 font-black text-[15px]">RESOCONTO</button>
+      <button id="btnChiudiTurno" onclick="closeTurnoSheet();chiudiTurno()" class="hidden bg-red-500 text-white rounded-2xl px-6 py-5 font-black text-[16px]">CHIUDI TURNO</button>
+    </div>
   </div>
-  <button id="btnIniziaTurno" onclick="apriInizioTurno()" class="bg-emerald-500 text-white rounded-2xl px-6 py-4 font-black text-[12px] whitespace-nowrap">INIZIA TURNO</button>
-  <button id="btnChiudiTurno" onclick="chiudiTurno()" class="hidden bg-red-500 text-white rounded-2xl px-6 py-4 font-black text-[12px] whitespace-nowrap">CHIUDI TURNO</button>
-  <button id="btnResocontoTurno" onclick="apriResocontoTurnoCorrente()" class="hidden bg-yellow-400 text-black border-2 border-black rounded-2xl px-6 py-4 font-black text-[12px] whitespace-nowrap">RESOCONTO</button>
 </div>
 
 <div id="venditaToast" class="hidden fixed top-24 left-1/2 -translate-x-1/2 z-[500] bg-emerald-500 text-white rounded-3xl px-8 py-5 shadow-2xl border-4 border-white">
@@ -478,14 +484,12 @@ input,select,textarea{min-height:58px;font-size:18px}
   <div id="tab-cassa" class="tab-page">
     <div class="grid grid-cols-12 gap-4">
       <div class="col-span-12 lg:col-span-7 bg-white rounded-3xl border p-6">
-        <div class="flex items-center justify-between flex-wrap gap-2">
-          <h2 class="font-black text-[18px] tracking-wider">CASSA <span id="cassaTurnoBadge" class="ml-2 bg-red-100 text-red-600 px-3 py-1 rounded-full text-[11px]">NESSUN TURNO</span></h2>
-          <button onclick="openIstruzioni()" class="bg-blue-600 text-white rounded-2xl px-5 py-3 font-black text-[13px]">📘 ISTRUZIONI</button>
-        </div>
-        <div id="sezioni" class="mt-3 grid grid-cols-3 gap-2">
-          <button data-sez="caffetteria" class="chip rounded-2xl px-2 h-12 min-h-0 font-black text-[13px] border-2">☕ CAFFETTERIA</button>
-          <button data-sez="cibi" class="chip rounded-2xl px-2 h-12 min-h-0 font-black text-[13px] border-2">🥐 CIBI E BEVANDE</button>
-          <button data-sez="tabacchi" class="chip rounded-2xl px-2 h-12 min-h-0 font-black text-[13px] border-2">🚬 TABACCHI</button>
+        <span id="cassaTurnoBadge" style="display:none"></span>
+        <div id="sezioni" class="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] gap-2">
+          <button data-sez="caffetteria" class="chip rounded-2xl px-1 h-12 min-h-0 font-black text-[12px] sm:text-[13px] leading-tight border-2">☕ CAFFETTERIA</button>
+          <button data-sez="cibi" class="chip rounded-2xl px-1 h-12 min-h-0 font-black text-[12px] sm:text-[13px] leading-tight border-2">🥐 CIBI E BEVANDE</button>
+          <button data-sez="tabacchi" class="chip rounded-2xl px-1 h-12 min-h-0 font-black text-[12px] sm:text-[13px] leading-tight border-2">🚬 TABACCHI</button>
+          <button onclick="openIstruzioni()" aria-label="Istruzioni" title="Istruzioni" class="w-12 h-12 min-h-0 rounded-2xl bg-blue-600 text-white text-[22px] leading-none">📘</button>
         </div>
         <input id="pistolaCassa" autocomplete="off" inputmode="none" style="position:fixed;left:10px;top:10px;width:1px;height:1px;opacity:0.01;z-index:1;" autofocus>
         <div id="scanBig" onclick="refocus()" class="mt-2 rounded-2xl border-2 border-slate-200 bg-slate-50 px-3 py-2"></div>
@@ -1137,9 +1141,11 @@ function updateTurnoUI(){
     $('turnoBarNome').textContent = t.nome+' - '+eur(t.incasso)+' ('+t.pezzi+' pz)';
     $('turnoBarOra').textContent = 'Iniziato '+(fmtDate(t.start_at)===fmtDate(new Date().toISOString())?'alle '+fmtTime(t.start_at):fmtDT(t.start_at));
     $('headerTurnoInfo').textContent = 'TURNO: '+t.nome;
+    $('turnoChip').textContent = '● '+t.nome; $('turnoChip').className='bg-emerald-500 text-white px-3 min-h-0 h-12 max-w-[130px] rounded-2xl text-[11px] font-black leading-tight truncate';
   } else {
     badge.textContent='NESSUN TURNO'; badge.className='ml-2 bg-red-100 text-red-600 px-3 py-1 rounded-full text-[11px]';
     $('turnoBarNome').textContent='NESSUNO - INIZIA UN TURNO'; $('turnoBarOra').textContent='-'; $('headerTurnoInfo').textContent='NESSUN TURNO APERTO';
+    $('turnoChip').textContent='▶ INIZIA TURNO'; $('turnoChip').className='bg-red-500 text-white px-3 min-h-0 h-12 max-w-[130px] rounded-2xl text-[11px] font-black leading-tight';
   }
   $('btnIniziaTurno').classList.toggle('hidden', !!t);
   $('btnChiudiTurno').classList.toggle('hidden', !t);
@@ -1240,7 +1246,7 @@ function setSezione(z){ S.sezione=SEZIONI[z]?z:'tabacchi'; renderCatalog(); }
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-sez]'); if(b){ setSezione(b.dataset.sez); refocus(); } });
 function renderCatalog(){
   const g=$('catalogoGrid'); if(!g) return;
-  document.querySelectorAll('#sezioni [data-sez]').forEach(b=>{ const on=b.dataset.sez===S.sezione; b.className='chip rounded-2xl px-2 h-12 min-h-0 font-black text-[13px] border-2 '+(on?'bg-slate-900 text-white border-slate-900':'bg-white text-slate-700 border-slate-300'); });
+  document.querySelectorAll('#sezioni [data-sez]').forEach(b=>{ const on=b.dataset.sez===S.sezione; b.className='chip rounded-2xl px-1 h-12 min-h-0 font-black text-[12px] sm:text-[13px] leading-tight border-2 '+(on?'bg-slate-900 text-white border-slate-900':'bg-white text-slate-700 border-slate-300'); });
   $('titoloCatalogo').textContent = SEZIONI[S.sezione];
   if(S.sezione!=='tabacchi'){
     $('countCatalogo').textContent='';
@@ -1280,6 +1286,8 @@ function renderScanBig(flash){
 }
 
 /* ---------- menu e icona pistola ---------- */
+function openTurnoSheet(){ $('turnoSheet').classList.remove('hidden'); }
+function closeTurnoSheet(){ $('turnoSheet').classList.add('hidden'); refocus(); }
 function openIstruzioni(){ $('istruzioniModal').classList.remove('hidden'); }
 function closeIstruzioni(){ $('istruzioniModal').classList.add('hidden'); refocus(); }
 function openMenu(){ $('verApp').textContent=APP_VERSION; $('menuDrawer').classList.remove('hidden'); }

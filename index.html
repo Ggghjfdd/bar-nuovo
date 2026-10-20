@@ -233,7 +233,8 @@ input,select,textarea{min-height:58px;font-size:18px}
 <div id="menuDrawer" class="modal hidden fixed inset-0 z-[240] bg-black/60" onclick="if(event.target.id==='menuDrawer') closeMenu()">
   <nav class="bg-white h-full w-[82%] max-w-[320px] p-4 flex flex-col gap-3 shadow-2xl" style="padding-top:calc(16px + env(safe-area-inset-top))">
     <div class="flex justify-between items-center mb-1"><span class="font-black text-[18px]">MENU</span><button onclick="closeMenu()" aria-label="Chiudi" class="w-12 h-12 min-h-0 bg-slate-100 rounded-full font-black text-xl">×</button></div>
-    <button onclick="menuGo('cassa')" id="b-cassa" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-900 text-white">CASSA</button>
+    <button onclick="menuGo('home')" id="b-home" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-900 text-white">HOME</button>
+    <button onclick="menuGo('cassa')" id="b-cassa" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">TABACCHI (CASSA)</button>
     <button onclick="menuGo('carico')" id="b-carico" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">CARICO</button>
     <button onclick="menuGo('report')" id="b-report" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">RESOCONTI + TURNI</button>
     <button onclick="closeMenu();openIstruzioni()" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-blue-600 text-white">📘 ISTRUZIONI</button>
@@ -475,12 +476,33 @@ input,select,textarea{min-height:58px;font-size:18px}
 <main class="max-w-[1600px] mx-auto p-4 md:p-6 pb-28">
 
   <!-- ===== CASSA ===== -->
-  <div id="tab-cassa" class="tab-page">
+  <!-- ===== HOME ===== -->
+  <div id="tab-home" class="tab-page">
+    <input id="pistolaHome" autofocus autocomplete="off" inputmode="none" style="position:fixed;left:10px;top:10px;width:1px;height:1px;opacity:0.01;z-index:1;">
+    <div class="max-w-[1000px] mx-auto">
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+        <div><h2 class="font-black text-[22px] tracking-wider">COSA VUOI VENDERE?</h2><p class="text-[13px] font-bold text-slate-500">Se la pistola non legge un prodotto, scegli la sezione e cercalo nel menu.</p></div>
+        <button onclick="openIstruzioni()" class="bg-blue-600 text-white rounded-2xl px-5 py-3 font-black text-[13px]">📘 ISTRUZIONI</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <button onclick="homeBar('CAFFETTERIA')" class="min-h-[170px] rounded-3xl bg-amber-100 border-4 border-amber-300 p-6 flex flex-col items-center justify-center gap-2 text-amber-900">
+          <span class="text-[54px] leading-none">☕</span><span class="font-black text-[22px]">CAFFETTERIA</span><span class="text-[12px] font-black bg-white/70 rounded-full px-3 py-1">IN ARRIVO</span></button>
+        <button onclick="homeBar('CIBI E BEVANDE')" class="min-h-[170px] rounded-3xl bg-sky-100 border-4 border-sky-300 p-6 flex flex-col items-center justify-center gap-2 text-sky-900">
+          <span class="text-[54px] leading-none">🥐</span><span class="font-black text-[22px]">CIBI E BEVANDE</span><span class="text-[12px] font-black bg-white/70 rounded-full px-3 py-1">IN ARRIVO</span></button>
+        <button onclick="_showTab('cassa')" class="min-h-[170px] rounded-3xl bg-slate-900 border-4 border-slate-900 p-6 flex flex-col items-center justify-center gap-2 text-white">
+          <span class="text-[54px] leading-none">🚬</span><span class="font-black text-[22px]">TABACCHI</span><span class="text-[12px] font-black bg-emerald-500 rounded-full px-3 py-1">PISTOLA + MENU</span></button>
+      </div>
+      <p class="mt-5 text-center text-[13px] font-bold text-slate-500">Puoi anche sparare subito un pacchetto: si apre da solo la schermata Tabacchi.</p>
+    </div>
+  </div>
+
+  <div id="tab-cassa" class="tab-page hidden">
     <div class="grid grid-cols-12 gap-4">
       <div class="col-span-12 lg:col-span-7 bg-white rounded-3xl border p-6">
         <div class="flex items-center justify-between flex-wrap gap-2">
           <h2 class="font-black text-[18px] tracking-wider">CASSA <span id="cassaTurnoBadge" class="ml-2 bg-red-100 text-red-600 px-3 py-1 rounded-full text-[11px]">NESSUN TURNO</span></h2>
-          <button onclick="openIstruzioni()" class="bg-blue-600 text-white rounded-2xl px-5 py-3 font-black text-[13px]">📘 ISTRUZIONI</button>
+          <div class="flex gap-2"><button onclick="_showTab('home')" class="bg-white border-2 border-slate-900 rounded-2xl px-5 py-3 font-black text-[13px]">← HOME</button>
+          <button onclick="openIstruzioni()" class="bg-blue-600 text-white rounded-2xl px-5 py-3 font-black text-[13px]">📘 ISTRUZIONI</button></div>
         </div>
         <input id="pistolaCassa" autocomplete="off" inputmode="none" style="position:fixed;left:10px;top:10px;width:1px;height:1px;opacity:0.01;z-index:1;" autofocus>
         <div id="scanBig" onclick="refocus()" class="mt-2 rounded-2xl border-2 border-slate-200 bg-slate-50 px-3 py-2"></div>
@@ -631,7 +653,7 @@ const PROTECTED = ['carico','report','mag'];
 const S = {
   inv:[], byCode:new Map(), idx:new Map(), medie:new Map(),
   turno:null, oggi:[], carrello:[], pay:'contanti', clientId:null, finalizing:false,
-  tab:'cassa', adminUntil:0, pinFails:0, pinLock:0,
+  tab:'home', adminUntil:0, pinFails:0, pinLock:0,
   pdf:[], pdfHash:null, pdfName:'', pdfInfo:null, alias:new Map(), aamsIdx:new Map(), caricoProd:null,
   lastCode:null, lastTime:0, lastUnknown:null, scan:null,
   reportRows:[], turniRiep:[], reportTurnoId:null,
@@ -674,7 +696,8 @@ const anyModalOpen = () => !!document.querySelector('.modal:not(.hidden)');
 function refocus(){
   setTimeout(()=>{
     if(anyModalOpen()) return;
-    if(S.tab==='cassa') $('pistolaCassa')?.focus();
+    if(S.tab==='home') $('pistolaHome')?.focus();
+    else if(S.tab==='cassa') $('pistolaCassa')?.focus();
     else if(S.tab==='carico') $('pistolaCarico')?.focus();
   }, 60);
 }
@@ -1265,6 +1288,7 @@ function renderScanBig(flash){
 }
 
 /* ---------- menu e icona pistola ---------- */
+function homeBar(nome){ showWarning(nome+' arriverà presto.\nPer ora vendi i tabacchi dalla sezione TABACCHI.','IN ARRIVO'); }
 function openIstruzioni(){ $('istruzioniModal').classList.remove('hidden'); }
 function closeIstruzioni(){ $('istruzioniModal').classList.add('hidden'); refocus(); }
 function openMenu(){ $('verApp').textContent=APP_VERSION; $('menuDrawer').classList.remove('hidden'); }
@@ -1274,7 +1298,7 @@ function menuGo(t){ $('menuDrawer').classList.add('hidden'); openTab(t); }
    Verde = l'app e' pronta a ricevere le letture (campo di lettura attivo); rosso = non lo e'. */
 function updateScanIcon(){
   const b=$('scanIcon'); if(!b) return;
-  const inp = S.tab==='cassa' ? $('pistolaCassa') : S.tab==='carico' ? $('pistolaCarico') : null;
+  const inp = S.tab==='home' ? $('pistolaHome') : S.tab==='cassa' ? $('pistolaCassa') : S.tab==='carico' ? $('pistolaCarico') : null;
   const ready = !!inp && document.activeElement===inp && !anyModalOpen() && !document.hidden;
   b.className='w-12 h-12 min-h-0 shrink-0 rounded-full flex items-center justify-center '+(ready?'bg-emerald-500':'bg-red-500');
   b.title = ready ? 'Pistola pronta' : 'Pistola non attiva: tocca per riattivare';
@@ -1876,6 +1900,7 @@ function _showTab(n){
 /* ---------- avvio ---------- */
 window.addEventListener('DOMContentLoaded', async ()=>{
   $('filterDate').value = localDay();
+  $('pistolaHome').addEventListener('keydown', e=>{ if(e.key==='Enter'){ const c=e.target.value; e.target.value=''; _showTab('cassa'); handleScan(c,'cassa'); } });
   $('pistolaCassa').addEventListener('keydown', e=>{ if(e.key==='Enter'){ handleScan(e.target.value,'cassa'); e.target.value=''; } });
   $('pistolaCarico').addEventListener('keydown', e=>{ if(e.key==='Enter'){ handleScan(e.target.value,'carico'); e.target.value=''; } });
   $('manualCode').addEventListener('keydown', e=>{ if(e.key==='Enter') manualAdd(); });

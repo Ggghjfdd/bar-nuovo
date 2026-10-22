@@ -883,6 +883,7 @@ async function loadInventory(quiet=false){
     if(!quiet) showError('Errore caricamento magazzino:\n'+errMsg(e),'CONNESSIONE');
   }
   render();
+  if(S.loaded) setTimeout(avvisoSenzaBarcode,900);
 }
 
 async function loadMedie(){
@@ -1244,6 +1245,21 @@ function render(){
   if(!$('ordineModal').classList.contains('hidden')) renderOrdine();
 }
 
+/* Avviso una tantum: prodotti senza barcode (es. JPS, Marlboro Crafted) da collegare con la pistola */
+let _avvisoBcBusy=false;
+async function avvisoSenzaBarcode(){
+  if(_avvisoBcBusy || !S.loaded || S.tab!=='cassa' || anyModalOpen()) return;
+  const mancanti=S.inv.filter(p=>/^NOBARCODE_/.test(p.code));
+  if(!mancanti.length) return;
+  let visti=[]; try{ visti=JSON.parse(localStorage.getItem('bt_bc_avvisati')||'[]'); }catch(e){}
+  if(!mancanti.some(p=>!visti.includes(p.code))) return;           /* tutti già segnalati: non ripeto */
+  _avvisoBcBusy=true;
+  try{ localStorage.setItem('bt_bc_avvisati', JSON.stringify(Array.from(new Set(visti.concat(mancanti.map(p=>p.code)))))); }catch(e){}
+  const nomi=mancanti.slice(0,8).map(p=>'• '+((p.marca||'')+' '+(p.nome||'')).trim()).join('\n')+(mancanti.length>8?'\n… e altri '+(mancanti.length-8):'');
+  const si=await askConfirm('Mancano i codici a barre di '+mancanti.length+(mancanti.length===1?' prodotto':' prodotti')+':\n\n'+nomi+'\n\nVai a inserirli una volta sola: spara con la pistola il pacchetto di ognuno.',{title:'CODICI A BARRE MANCANTI',ok:'COLLEGA ORA'});
+  _avvisoBcBusy=false;
+  if(si) requireAdmin(()=>{ if(typeof eanStart==='function') eanStart(); }, 'COLLEGA EAN');
+}
 const SEZIONI={ caffetteria:'CAFFETTERIA', cibi:'CIBI E BEVANDE', tabacchi:'TABACCHI' };
 function setSezione(z){ S.sezione=SEZIONI[z]?z:'tabacchi'; renderCatalog(); }
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-sez]'); if(b){ setSezione(b.dataset.sez); refocus(); } });
@@ -1894,6 +1910,7 @@ function _showTab(n){
   const btn=$('b-'+n); if(btn) btn.className='w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-900 text-white';
   if(n==='report') loadReport();
   render(); if(n==='etichette' && typeof etRender==='function') etRender(); refocus();
+  if(n==='cassa') setTimeout(avvisoSenzaBarcode,700);
 }
 
 /* ---------- avvio ---------- */

@@ -78,7 +78,7 @@ function eanShow(){
     `<div class="bg-slate-100 rounded-2xl p-4">
        <p class="text-[11px] font-bold text-slate-500">PRODOTTO SENZA EAN</p>
        <p class="font-black text-[24px] break-words leading-tight">${esc(nomeP(p))}</p>
-       <p class="text-[13px] font-bold mt-1">${p.codice_aams?'AAMS '+esc(p.codice_aams)+' · ':''}giac. ${p.qty}</p>
+       <p class="text-[13px] font-bold mt-1">${p.codice_aams?'AAMS '+esc(p.codice_aams):''}</p>
      </div>
      <label class="block mt-4 font-black text-[15px]">Spara il codice a barre del pacchetto</label>
      ${scanBox('SPARA L\'EAN')}
@@ -333,6 +333,7 @@ async function peSave(){
 }
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-edit]'); if(b) prodEdit(b.dataset.edit); });
 
+window.eanMancanti = () => S.inv.filter(p=>!haEan(p));
 window.eanStart = eanStart; window.eanPick = eanPick; window.invStart = invStart; window.prodEdit = prodEdit;
 window.__mdTest = { gs1ok, haEan, MD };
 })();

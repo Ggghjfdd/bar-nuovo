@@ -238,6 +238,7 @@ input,select,textarea{min-height:58px;font-size:18px}
     <button onclick="menuGo('carico')" id="b-carico" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">CARICO</button>
     <button onclick="menuGo('report')" id="b-report" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">RESOCONTI + TURNI</button>
     <button onclick="closeMenu();openIstruzioni()" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-blue-600 text-white">📘 ISTRUZIONI</button>
+    <button onclick="menuGo('etichette')" id="b-etichette" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">🏷 BARCODE / ETICHETTE</button>
     <button onclick="menuGo('mag')" id="b-mag" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">MAGAZZINO</button>
   <p class="mt-auto text-center text-[11px] font-bold text-slate-400">Versione app: <span id="verApp"></span></p>
   </nav>
@@ -601,6 +602,8 @@ input,select,textarea{min-height:58px;font-size:18px}
   </div>
 
   <!-- ===== MAGAZZINO ===== -->
+  <div id="tab-etichette" class="tab-page hidden"></div>
+
   <div id="tab-mag" class="tab-page hidden">
     <div class="bg-white rounded-3xl border p-6">
       <div class="flex flex-wrap justify-between items-center gap-3">
@@ -635,7 +638,7 @@ if(/INCOLLA-QUI/.test(SUPABASE_URL+SUPABASE_ANON_KEY)){
 const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const T = 'prodotti_master';
 const COOLDOWN = 300, ADMIN_MS = 10*60*1000, POLL_MS = 30000, MEDIE_MS = 10*60*1000, SYNC_MEDIE_MS = 6*3600*1000;
-const PROTECTED = ['carico','report','mag'];
+const PROTECTED = ['carico','report','mag','etichette'];
 
 const S = {
   inv:[], byCode:new Map(), idx:new Map(), medie:new Map(),
@@ -1051,7 +1054,7 @@ function addToCart(prod){
   const inv = S.byCode.get(prod.code);
   if(!inv || inv.qty<=0){ showStock('Prodotto esaurito:\n'+prod.marca+' '+prod.nome,'ESAURITO'); return; }
   const inCart = S.carrello.find(c=>c.code===prod.code);
-  if((inCart?inCart.qty:0) >= inv.qty){ showStock('Hai già inserito tutti i pezzi disponibili.\nDisponibili: '+inv.qty,'STOCK FINITO'); return; }
+  if((inCart?inCart.qty:0) >= inv.qty){ showStock('Hai già inserito tutti i pezzi disponibili.','STOCK FINITO'); return; }
   if(inCart) inCart.qty++; else S.carrello.push({ code:prod.code, marca:prod.marca, nome:prod.nome, prezzo:prod.prezzo, qty:1 });
   cartChanged();
 }
@@ -1059,15 +1062,15 @@ function setCartQty(i, q){
   const it=S.carrello[i]; if(!it) return;
   const inv=S.byCode.get(it.code); const max=inv?inv.qty:0;
   if(q<=0){ S.carrello.splice(i,1); }
-  else if(q>max){ showStock('Disponibili solo '+max+' pezzi','SCORTE'); return; }
+  else if(q>max){ showStock('Quantità non disponibile.','SCORTE'); return; }
   else it.qty=q;
   cartChanged();
 }
 function editCartQty(i){
   const it=S.carrello[i]; if(!it) return;
   const inv=S.byCode.get(it.code); const max=inv?inv.qty:0;
-  openNumpad({ label:'QUANTITÀ (max '+max+')', initial:String(it.qty),
-    validate:v=>{ const n=parseInt(v); if(isNaN(n)||n<1) return 'Minimo 1 pezzo'; if(n>max) return 'Disponibili solo '+max+' pezzi'; return null; },
+  openNumpad({ label:'QUANTITÀ', initial:String(it.qty),
+    validate:v=>{ const n=parseInt(v); if(isNaN(n)||n<1) return 'Minimo 1 pezzo'; if(n>max) return 'Quantità non disponibile'; return null; },
     onOk:v=>setCartQty(i, parseInt(v)) });
 }
 async function svuotaCarrello(){
@@ -1248,15 +1251,12 @@ function renderCatalog(){
   const g=$('catalogoGrid'); if(!g) return;
   document.querySelectorAll('#sezioni [data-sez]').forEach(b=>{ const on=b.dataset.sez===S.sezione; b.className='chip rounded-2xl px-1 h-12 min-h-0 font-black text-[12px] sm:text-[13px] leading-tight border-2 '+(on?'bg-slate-900 text-white border-slate-900':'bg-white text-slate-700 border-slate-300'); });
   $('titoloCatalogo').textContent = SEZIONI[S.sezione];
-  if(S.sezione!=='tabacchi'){
-    $('countCatalogo').textContent='';
-    g.innerHTML='<div class="col-span-full text-center bg-slate-50 border-2 border-dashed rounded-2xl p-8"><p class="font-black text-[16px]">Il menu '+SEZIONI[S.sezione]+' arriva presto</p><p class="text-[12px] font-bold text-slate-500 mt-1">Per ora vendi i tabacchi: tocca TABACCHI.</p></div>';
-    return;
-  }
   const q=($('searchCatalogo').value||'').toLowerCase().trim();
-  let list=S.inv.filter(p=>p.qty>0); if(q) list=list.filter(p=>hay(p).includes(q));
+  const sezDi=p=>{ const c=String(p.categoria||'').toUpperCase(); return c==='CAFFETTERIA'?'caffetteria':c==='CIBI E BEVANDE'?'cibi':'tabacchi'; };
+  let list=S.inv.filter(p=>p.qty>0 && sezDi(p)===S.sezione); if(q) list=list.filter(p=>hay(p).includes(q));
+  if(!list.length && !q && S.sezione!=='tabacchi'){ $('countCatalogo').textContent=''; g.innerHTML='<div class="col-span-full text-center bg-slate-50 border-2 border-dashed rounded-2xl p-8"><p class="font-black text-[16px]">Nessun prodotto in '+SEZIONI[S.sezione]+'</p><p class="text-[12px] font-bold text-slate-500 mt-1">Il titolare può aggiungerli da BARCODE / ETICHETTE.</p></div>'; return; }
   $('countCatalogo').textContent = list.length+' prodotti';
-  g.innerHTML = list.slice(0,150).map(p=>`<div data-act="add" data-code="${esc(p.code)}" class="bg-slate-50 border rounded-xl p-3 cursor-pointer hover:bg-yellow-50 active:bg-yellow-100"><p class="font-bold text-[11px] uppercase">${esc(p.marca)} ${esc(p.nome)}</p><p class="font-mono text-[10px] text-slate-500">${eur(p.prezzo)} - ${p.qty} pz - ${fmtGG(p)}</p></div>`).join('')
+  g.innerHTML = list.slice(0,150).map(p=>`<div data-act="add" data-code="${esc(p.code)}" class="bg-slate-50 border rounded-xl p-3 cursor-pointer hover:bg-yellow-50 active:bg-yellow-100"><p class="font-bold text-[11px] uppercase">${esc(p.marca)} ${esc(p.nome)}</p><p class="font-mono text-[10px] text-slate-500">${eur(p.prezzo)}</p></div>`).join('')
     + (list.length>150?'<p class="col-span-full text-center text-[11px] text-slate-500">Mostrati 150 su '+list.length+': usa la ricerca</p>':'');
 }
 
@@ -1276,7 +1276,7 @@ function renderScanBig(flash){
     const p=S.byCode.get(sc.code); const inCart=S.carrello.find(c=>c.code===sc.code); const qty=p?p.qty:0;
     cls = qty>0 ? 'border-emerald-400 bg-emerald-50' : 'border-amber-400 bg-amber-50';
     body=`<div class="min-w-0 text-left"><p class="font-black leading-tight break-words text-[18px]">${esc(p?p.marca:sc.code)} <span class="text-emerald-600">${eur(p?p.prezzo:0)}</span></p>
-      <p class="font-bold text-[11px] ${qty>0?'text-slate-500':'text-amber-700'}">${qty>0?('In scontrino: '+(inCart?inCart.qty:0)+' · Disponibili: '+qty):'ESAURITO'}${sc.msg?' · '+esc(sc.msg):''}</p></div>`;
+      <p class="font-bold text-[11px] ${qty>0?'text-slate-500':'text-amber-700'}">${qty>0?('In scontrino: '+(inCart?inCart.qty:0)):'ESAURITO'}${sc.msg?' · '+esc(sc.msg):''}</p></div>`;
   } else {
     cls='border-red-400 bg-red-50';
     body=`<div class="min-w-0 text-left"><p class="font-black text-red-600 leading-tight text-[16px]">${esc(sc.msg||'ERRORE')}</p><p class="font-mono font-bold text-[11px] break-all">${esc(sc.code||'')}</p></div>`;
@@ -1312,7 +1312,7 @@ function renderCart(){
   c.innerHTML = S.carrello.length ? S.carrello.map((it,i)=>{
     const inv=S.byCode.get(it.code), max=inv?inv.qty:0, over=it.qty>max;
     return `<div class="bg-white/10 border ${over?'border-red-400':'border-white/10'} rounded-xl px-3 py-2.5 flex justify-between items-center gap-2">
-      <div class="flex-1 min-w-0"><p class="font-bold text-[12px] truncate">${esc(it.marca)} ${esc(it.nome)}</p><p class="font-mono text-[9px] ${over?'text-red-300':'text-slate-400'}">${over?'ATTENZIONE: disponibili '+max:'MAX '+max+' pz'} - ${esc(it.code)}</p></div>
+      <div class="flex-1 min-w-0"><p class="font-bold text-[12px] truncate">${esc(it.marca)} ${esc(it.nome)}</p><p class="font-mono text-[9px] ${over?'text-red-300':'text-slate-400'}">${over?'ATTENZIONE: quantità non disponibile':''} ${esc(it.code)}</p></div>
       <div class="flex items-center gap-1.5">
         <button data-act="cartDec" data-i="${i}" class="chip bg-white/20 w-9 h-9 min-h-0 rounded-full font-black">−</button>
         <button data-act="cartQty" data-i="${i}" class="chip bg-yellow-400 text-black border-2 border-yellow-500 rounded-full px-3 h-9 min-h-0 font-black text-[12px]">x${it.qty}</button>
@@ -1893,7 +1893,7 @@ function _showTab(n){
   document.querySelectorAll('[id^="b-"]').forEach(b=>{ b.className='w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100'; });
   const btn=$('b-'+n); if(btn) btn.className='w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-900 text-white';
   if(n==='report') loadReport();
-  render(); refocus();
+  render(); if(n==='etichette' && typeof etRender==='function') etRender(); refocus();
 }
 
 /* ---------- avvio ---------- */
@@ -1912,5 +1912,6 @@ window.addEventListener('DOMContentLoaded', async ()=>{
 });
 </script>
 <script src="./modalita.js?v=17"></script>
+<script src="./etichette.js?v=1"></script>
 </body>
 </html>

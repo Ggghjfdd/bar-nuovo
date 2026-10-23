@@ -1249,20 +1249,25 @@ function render(){
 
 /* Avviso una tantum: prodotti senza barcode (es. JPS, Marlboro Crafted) da collegare con la pistola */
 let _avvisoBcBusy=false;
+const BC_REMIND_MS = 5*60*1000;
+function bcNext(){ try{ return parseInt(localStorage.getItem('bt_bc_next')||'0')||0; }catch(e){ return 0; } }
+function bcSetNext(ms){ try{ localStorage.setItem('bt_bc_next', String(Date.now()+ms)); }catch(e){} }
 function prodottiSenzaBarcode(){ return (typeof eanMancanti==='function') ? eanMancanti() : S.inv.filter(p=>/^NOBARCODE_/.test(p.code)); }
+/* Promemoria: finché ci sono prodotti senza barcode, ogni 5 minuti compare l'avviso (se non si sta vendendo) */
 async function avvisoSenzaBarcode(){
   if(_avvisoBcBusy || !S.loaded || S.tab!=='cassa' || anyModalOpen()) return;
+  if(S.carrello.length || S.finalizing) return;                      /* non interrompo una vendita */
   const mancanti=prodottiSenzaBarcode();
-  if(!mancanti.length) return;
-  let visti=[]; try{ visti=JSON.parse(localStorage.getItem('bt_bc_avvisati2')||'[]'); }catch(e){}
-  if(!mancanti.some(p=>!visti.includes(p.code))) return;           /* tutti già segnalati: non ripeto */
+  if(!mancanti.length){ try{ localStorage.removeItem('bt_bc_next'); }catch(e){} return; }
+  if(Date.now() < bcNext()) return;                                  /* "ricordamelo": non ancora */
   _avvisoBcBusy=true;
-  try{ localStorage.setItem('bt_bc_avvisati2', JSON.stringify(Array.from(new Set(visti.concat(mancanti.map(p=>p.code)))))); }catch(e){}
   const nomi=mancanti.slice(0,8).map(p=>'• '+((p.marca||'')+' '+(p.nome||'')).trim()).join('\n')+(mancanti.length>8?'\n… e altri '+(mancanti.length-8):'');
-  const si=await askConfirm('Mancano i codici a barre di '+mancanti.length+(mancanti.length===1?' prodotto':' prodotti')+':\n\n'+nomi+'\n\nSpara con la pistola il pacchetto di ognuno: basta farlo una volta sola.\nSe non puoi ora, usa l\'icona 🏷 in alto nella cassa.',{title:'CODICI A BARRE MANCANTI',ok:'COLLEGA ORA',cancel:'PIÙ TARDI'});
+  const si=await askConfirm('Ciao, devi scansionare il barcode di queste sigarette:\n\n'+nomi,{title:'BARCODE MANCANTI',ok:'CONFERMA',cancel:'RICORDAMELO TRA 5 MINUTI'});
   _avvisoBcBusy=false;
+  bcSetNext(window.__BC_REMIND_MS ?? BC_REMIND_MS);                  /* se non finisce tutto, ricompare tra 5 minuti */
   if(si && typeof eanStart==='function') eanStart();
 }
+setInterval(avvisoSenzaBarcode, 15000);
 /* icona provvisoria nella cassa: sparisce quando tutti i prodotti hanno un barcode */
 function aggiornaIconaBarcode(){
   const b=$('btnMancanti'); if(!b) return;

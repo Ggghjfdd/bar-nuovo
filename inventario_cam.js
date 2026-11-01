@@ -111,7 +111,7 @@ function ensure(){
         <p class="text-[11px] font-black text-slate-400">PRODOTTO TROVATO</p>
         <h4 id="icName" class="font-black text-[19px] leading-tight"></h4>
         <p id="icInfo" class="text-[12px] text-slate-500 font-bold mt-1"></p>
-        <label class="block mt-4 font-black text-[13px]">QUANTE NE HAI? (pezzi)</label>
+        <label class="block mt-4 font-black text-[13px]">QUANTI PACCHETTI HAI?</label>
         <div class="flex items-center gap-2 mt-1">
           <button data-ic="minus" class="w-14 h-14 min-h-0 bg-slate-100 rounded-2xl font-black text-[26px]">−</button>
           <input id="icQty" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" autocomplete="off" class="flex-1 min-w-0 h-14 text-center border-4 border-orange-400 rounded-2xl font-black text-[28px] bg-yellow-50 outline-none">
@@ -167,7 +167,7 @@ function showCard(p){
   C.cur=p; C.paused=true;
   const c=C.counts.get(p.code);
   $('icName').textContent=nomeP(p);
-  $('icInfo').textContent='In sistema: '+p.qty+' pz'+(c?' · già contato: '+c.counted+' (verrà sostituito)':'');
+  $('icInfo').textContent='In sistema: '+p.qty+' pacchetti'+(c?' · già contato: '+c.counted+' (verrà sostituito)':'');
   $('icQty').value = c? String(c.counted):'';
   $('icCard').classList.remove('hidden');
   setTimeout(()=>{ const i=$('icQty'); i.focus(); i.select(); }, 60);

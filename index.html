@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-const APP_VERSION='v32';
+const APP_VERSION='v33';
 try{
   if(localStorage.getItem('bt_ver')!==APP_VERSION){
     if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
@@ -240,7 +240,7 @@ input,select,textarea{min-height:58px;font-size:18px}
     <button onclick="closeMenu();openIstruzioni()" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-blue-600 text-white">📘 ISTRUZIONI</button>
     <button onclick="menuGo('etichette')" id="b-etichette" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">🏷 BARCODE / ETICHETTE</button>
     <button onclick="menuGo('mag')" id="b-mag" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">MAGAZZINO</button>
-    <button onclick="closeMenu();requireAdmin(invStart,'INVENTARIO')" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-emerald-500 text-white">📦 FAI L'INVENTARIO</button>
+    <button onclick="closeMenu();requireAdmin(invCamStart,'INVENTARIO')" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-emerald-500 text-white">📷 INVENTARIO CON FOTOCAMERA</button>
     <button onclick="closeMenu();requireAdmin(openOrdineModal,'ORDINE')" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-yellow-400 border-2 border-yellow-500">📋 FAI L'ORDINE</button>
   <p class="mt-auto text-center text-[11px] font-bold text-slate-400">Versione app: <span id="verApp"></span></p>
   </nav>
@@ -1985,6 +1985,6 @@ window.addEventListener('DOMContentLoaded', async ()=>{
 </script>
 <script src="./modalita.js?v=18"></script>
 <script src="./etichette.js?v=1"></script>
-<script src="./inventario_cam.js?v=2"></script>
+<script src="./inventario_cam.js?v=3"></script>
 </body>
 </html>

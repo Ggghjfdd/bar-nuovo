@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-const APP_VERSION='v34';
+const APP_VERSION='v35';
 try{
   if(localStorage.getItem('bt_ver')!==APP_VERSION){
     if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
@@ -211,6 +211,33 @@ input,select,textarea{min-height:58px;font-size:18px}
 </style>
 </head>
 <body>
+<!-- PASSWORD D'INGRESSO: chiesta ogni volta che si apre il sito (resta valida finché la scheda/app resta aperta) -->
+<div id="gateModal" class="modal fixed inset-0 z-[99999] bg-slate-900 flex items-center justify-center p-4">
+  <form id="gateForm" class="bg-white rounded-[28px] p-6 w-full max-w-[380px] shadow-2xl border-4 border-black" autocomplete="off">
+    <h2 class="font-black text-[24px] leading-none">BAR TABACCHI</h2>
+    <p class="mt-2 text-[14px] font-bold text-slate-500">Inserisci la password per entrare</p>
+    <input id="gatePwd" type="password" inputmode="numeric" maxlength="12" autocomplete="off" aria-label="Password" class="mt-4 w-full h-16 text-center border-4 border-slate-900 rounded-2xl font-black text-[28px] tracking-[0.3em] bg-yellow-50 outline-none">
+    <p id="gateErr" class="hidden mt-2 text-[14px] font-black text-red-600">Password sbagliata, riprova.</p>
+    <button type="submit" class="w-full mt-4 bg-slate-900 text-white rounded-2xl py-4 text-[18px] font-black">ENTRA</button>
+  </form>
+</div>
+<script>
+(function(){
+  const H='e66d23bd212beb5f606d76e9e3c8d12951c9e72b69871d39bd6aa4688c6303cc';
+  const g=document.getElementById('gateModal');
+  function apri(){ g.remove(); try{ if(typeof refocus==='function') refocus(); }catch(e){} }
+  try{ if(sessionStorage.getItem('bt_gate')===H){ apri(); return; } }catch(e){}
+  async function sha(t){ const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+  const i=document.getElementById('gatePwd'), err=document.getElementById('gateErr');
+  setTimeout(()=>i.focus(),50);
+  document.getElementById('gateForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    let ok=false; try{ ok=(await sha(i.value.trim()))===H; }catch(x){}
+    if(ok){ try{ sessionStorage.setItem('bt_gate',H); }catch(x){} apri(); }
+    else { err.classList.remove('hidden'); i.value=''; i.focus(); try{ navigator.vibrate&&navigator.vibrate(120); }catch(x){} }
+  });
+})();
+</script>
 <header class="sticky top-0 z-50 bg-white border-b shadow-sm">
   <div class="bg-slate-900 px-3 py-2 flex justify-between items-center gap-2" style="padding-top:calc(8px + env(safe-area-inset-top))">
     <div class="flex items-center gap-3 min-w-0">

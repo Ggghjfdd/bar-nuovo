@@ -1,5 +1,5 @@
 const CACHE_NAME = 'bar-tabacchi-v27';
-const APP_SHELL = ['./', './index.html', './manifest.json', './modalita.js','./etichette.js','./catalogo_logista.json'];
+const APP_SHELL = ['./', './index.html', './manifest.json', './modalita.js','./etichette.js','./inventario_cam.js','./catalogo_logista.json'];
 
 self.addEventListener('install', event => {
   self.skipWaiting();

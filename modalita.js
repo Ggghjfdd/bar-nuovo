@@ -176,7 +176,8 @@ function invRender(){
     const p=S.byCode.get(code); const d=c.counted-c.sys; diffTot+=d; if(d!==0) cambi++;
     return {code,c,p,d};
   }).sort((a,b)=>b.c.ts-a.c.ts);
-  sub(n+' prodotti contati · '+cambi+' da correggere · non contati: '+Math.max(0,S.inv.length-n));
+  const daContare=S.inv.filter(p=>p.categoria!=='CAFFETTERIA' && !MD.counts.has(p.code)).sort((a,b)=>nomeP(a).localeCompare(nomeP(b)));
+  sub(n+' prodotti contati · '+cambi+' da correggere · da contare: '+daContare.length);
   const col = d => d===0?'text-slate-500':(d>0?'text-emerald-600':'text-red-600');
   $('mdBody').innerHTML =
     `<label class="block font-black text-[15px]">Spara un prodotto per contarlo</label>
@@ -189,6 +190,7 @@ function invRender(){
           <button data-md="invDel" data-v="${esc(code)}" class="w-9 h-9 min-h-0 bg-white border rounded-full font-black text-red-600">×</button>
         </div>`).join('') || '<p class="text-center text-[12px] text-slate-400 py-6">Nessun prodotto contato</p>'}
      </div>
+     ${daContare.length?`<details class="mt-4 bg-amber-50 border-2 border-amber-300 rounded-xl"><summary class="p-3 font-black text-[13px] cursor-pointer">📋 ANCORA DA CONTARE: ${daContare.length} prodotti (tocca per vedere)</summary><div class="px-2 pb-2 space-y-1 max-h-[45vh] overflow-auto">${daContare.map(p=>`<button data-md="invEdit" data-v="${esc(p.code)}" class="w-full text-left min-h-0 bg-white border rounded-lg px-3 py-2 flex justify-between gap-2"><span class="text-[12px] font-bold">${esc(nomeP(p))}</span><span class="text-[11px] text-slate-500 whitespace-nowrap">sistema ${p.qty} · CONTA</span></button>`).join('')}</div></details>`:(n?'<p class="mt-4 bg-emerald-50 border-2 border-emerald-300 rounded-xl p-3 font-black text-[13px] text-emerald-700">✓ Tutti i prodotti sono stati contati</p>':'')}
      ${n?`<p class="mt-3 text-[12px] font-bold text-slate-500">Differenza totale: ${diffTot>0?'+':''}${diffTot} pezzi. ${btnLink('invReset','Azzera tutta la conta')}</p>`:''}`;
   focusScan();
 }
@@ -203,7 +205,7 @@ function invCount(p, counted){
 }
 function invAsk(p){
   const old = MD.counts.get(p.code);
-  openNumpad({ label:'QUANTITÀ CONTATA - '+nomeP(p), initial: old?String(old.counted):'', maxLen:5,
+  openNumpad({ label:'PACCHETTI CONTATI - '+nomeP(p), initial: old?String(old.counted):'', maxLen:5,
     validate:v=>{ const n=parseInt(v,10); return (isNaN(n)||n<0)?'Quantità non valida':null; },
     onOk:v=>invCount(p, parseInt(v,10)) });
 }

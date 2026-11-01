@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-const APP_VERSION='v29';
+const APP_VERSION='v30';
 try{
   if(localStorage.getItem('bt_ver')!==APP_VERSION){
     if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
@@ -350,21 +350,24 @@ input,select,textarea{min-height:58px;font-size:18px}
 </div>
 
 <!-- ORDINE -->
-<div id="ordineModal" class="modal hidden fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4">
-  <div class="bg-white rounded-3xl max-w-[900px] w-full max-h-[85vh] flex flex-col">
-    <div class="p-6 border-b">
-      <div class="flex justify-between">
-        <div><h3 class="font-black text-[18px]">COSA ORDINARE</h3><p class="text-[12px] text-slate-500">Ordinato per giorni di copertura, poi per data ultimo carico</p></div>
-        <button onclick="closeOrdineModal()" class="w-10 h-10 min-h-0 bg-slate-100 rounded-full font-black">×</button>
+<div id="ordineModal" class="modal hidden fixed inset-0 bg-black/70 z-[100] flex items-stretch md:items-center justify-center md:p-4">
+  <div class="bg-white md:rounded-3xl max-w-[900px] w-full h-full md:h-auto md:max-h-[90vh] flex flex-col">
+    <div class="p-3 md:p-6 border-b">
+      <div class="flex justify-between items-center gap-3">
+        <div><h3 class="font-black text-[17px] md:text-[18px]">COSA ORDINARE</h3><p class="text-[11px] md:text-[12px] text-slate-500">Stecche per prodotto: usa − / + o tocca il numero per cambiarle</p></div>
+        <button onclick="closeOrdineModal()" class="w-10 h-10 min-h-0 bg-slate-100 rounded-full font-black shrink-0">×</button>
       </div>
-      <div id="ordineSummary" class="mt-4 grid grid-cols-3 gap-3"></div>
+      <div id="ordineSummary" class="mt-2 md:mt-4 grid grid-cols-3 gap-2 md:gap-3"></div>
+      <input id="ordineAddSearch" oninput="renderOrdineAdd()" autocomplete="off" placeholder="+ Aggiungi un prodotto all'ordine (cerca nome, EAN, AAMS)" class="mt-2 md:mt-3 w-full min-h-0 bg-slate-50 border-2 rounded-xl px-3 py-2.5 font-bold text-[14px]">
+      <div id="ordineAddResults" class="mt-1 space-y-1 max-h-[35vh] overflow-auto"></div>
     </div>
-    <div id="ordineAvviso" class="px-4 pt-3"></div>
-    <div id="ordineList" class="p-4 overflow-auto space-y-2 flex-1"></div>
-    <div class="p-4 border-t bg-yellow-50 flex gap-2">
-      <button onclick="exportOrdineLogista()" class="bg-yellow-400 border-2 border-yellow-500 rounded-2xl px-6 py-3 font-black text-[12px]">EXPORT LOGISTA (.xls)</button><button onclick="exportOrdineCSV()" class="bg-slate-900 text-white rounded-2xl px-6 py-3 font-black text-[12px]">CSV ORDINE</button>
-      <button onclick="calcMedie(true)" class="bg-white border-2 rounded-2xl px-6 py-3 font-black text-[12px]">RICALCOLA ROTAZIONE</button>
-      <button onclick="closeOrdineModal()" class="ml-auto bg-white border-2 rounded-2xl px-6 py-3 font-black text-[12px]">CHIUDI</button>
+    <div id="ordineAvviso" class="px-2 md:px-4 pt-2"></div>
+    <div id="ordineList" class="p-2 md:p-4 overflow-auto space-y-2 flex-1 min-h-0"></div>
+    <div class="p-2 md:p-4 border-t bg-yellow-50 grid grid-cols-4 md:flex gap-2">
+      <button onclick="exportOrdineLogista()" class="min-h-0 md:min-h-[58px] bg-yellow-400 border-2 border-yellow-500 rounded-xl md:rounded-2xl px-1 md:px-6 py-2.5 md:py-3 font-black text-[10px] md:text-[12px] leading-tight">EXPORT LOGISTA (.xls)</button><button onclick="exportOrdineCSV()" class="min-h-0 md:min-h-[58px] bg-slate-900 text-white rounded-xl md:rounded-2xl px-1 md:px-6 py-2.5 md:py-3 font-black text-[10px] md:text-[12px] leading-tight">CSV ORDINE</button>
+      <button data-act="ordReset" class="min-h-0 md:min-h-[58px] bg-white border-2 rounded-xl md:rounded-2xl px-1 md:px-6 py-2.5 md:py-3 font-black text-[10px] md:text-[12px] leading-tight">TORNA ALLA PROPOSTA</button>
+      <button onclick="calcMedie(true)" class="min-h-0 md:min-h-[58px] bg-white border-2 rounded-xl md:rounded-2xl px-1 md:px-6 py-2.5 md:py-3 font-black text-[10px] md:text-[12px] leading-tight">RICALCOLA ROTAZIONE</button>
+      <button onclick="closeOrdineModal()" class="hidden md:block ml-auto bg-white border-2 rounded-2xl px-6 py-3 font-black text-[12px]">CHIUDI</button>
     </div>
   </div>
 </div>
@@ -1390,15 +1393,29 @@ async function setScorta(code, val){
 }
 
 /* ---------- cosa ordinare ---------- */
-function calcOrdine(){
-  const out=[];
+/* Proposta automatica + modifiche a mano (stecche per prodotto), salvate sul dispositivo per la giornata */
+const ORD_KEY='bt_ordine_mod';
+function ordEdits(){
+  if(!S.ordEdit){ S.ordEdit={}; try{ const o=JSON.parse(localStorage.getItem(ORD_KEY)||'null'); if(o && o.day===localDay() && o.q) S.ordEdit=o.q; }catch(e){} }
+  return S.ordEdit;
+}
+function saveOrdEdits(){ try{ localStorage.setItem(ORD_KEY, JSON.stringify({ day:localDay(), q:ordEdits() })); }catch(e){} }
+function propostaStecche(p){
+  const diff=p.scorta-p.qty;
+  if(diff<=5) return 0;
+  const maxStecche=Math.floor((p.scorta+5-p.qty)/10);
+  if(maxStecche<=0) return 0;
+  return Math.min(Math.ceil(diff/10), maxStecche);
+}
+/* conZero=true: anche le righe messe a 0 (per mostrarle in grigio); export e totali usano solo quelle > 0 */
+function calcOrdine(conZero=false){
+  const ed=ordEdits(), out=[];
   for(const p of S.inv){
-    const diff=p.scorta-p.qty;
-    if(diff<=5) continue;
-    const maxStecche=Math.floor((p.scorta+5-p.qty)/10);
-    if(maxStecche<=0) continue;
-    const stecche=Math.min(Math.ceil(diff/10), maxStecche);
-    out.push({ p, diff, stecche, pezzi:stecche*10, finale:p.qty+stecche*10, gg:copertura(p) });
+    const prop=propostaStecche(p), has=Object.prototype.hasOwnProperty.call(ed,p.code);
+    if(!prop && !has) continue;
+    const stecche=has?ed[p.code]:prop;
+    if(!conZero && stecche<=0) continue;
+    out.push({ p, prop, mod:has && stecche!==prop, diff:p.scorta-p.qty, stecche, pezzi:stecche*10, finale:p.qty+stecche*10, gg:copertura(p) });
   }
   out.sort((a,b)=>{
     if(a.gg!==b.gg) return a.gg<b.gg?-1:1;
@@ -1406,16 +1423,46 @@ function calcOrdine(){
   });
   return out;
 }
-function openOrdineModal(){ $('ordineModal').classList.remove('hidden'); renderOrdine(); }
-function closeOrdineModal(){ $('ordineModal').classList.add('hidden'); refocus(); }
-function renderOrdine(){
-  const lista=calcOrdine();
-  const valore=lista.reduce((s,o)=>s+o.p.prezzo*o.pezzi,0);
-  $('ordineSummary').innerHTML = `<div class="bg-white border rounded-xl p-3 text-center"><p class="text-[10px] font-bold text-slate-500">DA ORDINARE</p><p class="font-black text-[18px]">${lista.length}</p></div><div class="bg-white border rounded-xl p-3 text-center"><p class="text-[10px] font-bold text-slate-500">STECCHE</p><p class="font-black text-[18px]">${lista.reduce((s,o)=>s+o.stecche,0)}</p></div><div class="bg-yellow-100 border rounded-xl p-3 text-center"><p class="text-[10px] font-bold">VALORE (prezzo vendita)</p><p class="font-black text-[18px]">${eur(valore)}</p></div>`;
-  const senza=lista.filter(o=>!String(o.p.codice_aams||'').trim()); 
-  $('ordineAvviso').innerHTML = senza.length?`<div class="bg-orange-100 border-2 border-orange-400 text-orange-800 rounded-xl p-3 text-[12px] font-black">⚠ ${senza.length} prodotti senza codice AAMS: non finiscono nel file .xls, aggiungili a mano sul portale:<br>${senza.map(o=>esc(o.p.marca)+' ('+o.stecche+' st)').join(' • ')}</div>`:'';
-  $('ordineList').innerHTML = lista.length ? lista.map(o=>`<div class="${String(o.p.codice_aams||'').trim()?'bg-slate-50':'bg-orange-50 border-orange-400 border-2'} border rounded-xl p-3 flex justify-between gap-2"><div class="min-w-0"><p class="font-bold text-[12px]">${esc(o.p.marca)} ${esc(o.p.nome)} <span class="bg-red-100 text-red-700 px-1.5 rounded text-[10px]">${fmtGG(o.p)} copertura</span></p><p class="font-mono text-[10px] text-slate-600 break-all">EAN:${esc(o.p.code)} ${String(o.p.codice_aams||'').trim()?'AAMS:'+esc(o.p.codice_aams):'<span class="bg-orange-500 text-white px-2 py-0.5 rounded-full font-black">SENZA AAMS - SCRIVILO A MANO</span>'} LOG:${esc(o.p.codice_logista)} - Giac:${o.p.qty} Scorta:${o.p.scorta} → Finale:${o.finale} - Ult. carico:${o.p.ultimo?fmtDate(o.p.ultimo):'-'}</p></div><span class="bg-slate-900 text-white px-3 py-1 rounded-full text-[11px] font-bold h-fit whitespace-nowrap">${o.stecche} st</span></div>`).join('') : '<p class="text-center text-[12px] text-slate-400 py-6">Niente da ordinare.</p>';
+function setOrdStecche(code, v){
+  const p=S.byCode.get(code); if(!p) return;
+  const ed=ordEdits(); v=Math.max(0, Math.min(999, parseInt(v)||0));
+  if(v===propostaStecche(p)) delete ed[code]; else ed[code]=v;
+  saveOrdEdits(); renderOrdine();
 }
+function ordStep(code, d, almenoUno=false){
+  const r=calcOrdine(true).find(o=>o.p.code===code);
+  let v=(r?r.stecche:0)+d; if(almenoUno) v=Math.max(1,v);
+  setOrdStecche(code, v);
+}
+function openOrdineModal(){ $('ordineModal').classList.remove('hidden'); const s=$('ordineAddSearch'); if(s) s.value=''; renderOrdine(); }
+function closeOrdineModal(){ $('ordineModal').classList.add('hidden'); refocus(); }
+function renderOrdineAdd(){
+  const box=$('ordineAddResults'); if(!box) return;
+  const q=($('ordineAddSearch').value||'').toLowerCase().trim();
+  if(q.length<2){ box.innerHTML=''; return; }
+  const dentro=new Set(calcOrdine().map(o=>o.p.code));
+  const res=S.inv.filter(p=>!dentro.has(p.code) && hay(p).includes(q)).slice(0,8);
+  box.innerHTML = res.length ? res.map(p=>`<div class="flex justify-between items-center gap-2 bg-white border rounded-xl px-3 py-2"><div class="min-w-0"><p class="font-bold text-[12px] break-words">${esc(p.marca)} ${esc(p.nome)}</p><p class="font-mono text-[10px] text-slate-500">Giac:${p.qty} Scorta:${p.scorta} · ${eur(p.prezzo)}</p></div><button data-act="ordAdd" data-code="${esc(p.code)}" class="chip min-h-0 h-10 bg-slate-900 text-white rounded-full px-4 font-black text-[12px] whitespace-nowrap">+ AGGIUNGI</button></div>`).join('') : '<p class="text-[12px] font-bold text-slate-400 px-2 py-1">Nessun prodotto trovato (o è già nell\'ordine)</p>';
+}
+function renderOrdine(){
+  const tutte=calcOrdine(true), lista=tutte.filter(o=>o.stecche>0);
+  const valore=lista.reduce((s,o)=>s+o.p.prezzo*o.pezzi,0);
+  const nMod=tutte.filter(o=>o.mod).length;
+  $('ordineSummary').innerHTML = `<div class="bg-white border rounded-xl p-1.5 md:p-3 text-center"><p class="text-[9px] md:text-[10px] font-bold text-slate-500">DA ORDINARE</p><p class="font-black text-[16px] md:text-[18px]">${lista.length}</p></div><div class="bg-white border rounded-xl p-1.5 md:p-3 text-center"><p class="text-[9px] md:text-[10px] font-bold text-slate-500">STECCHE${nMod?' · '+nMod+' modif.':''}</p><p class="font-black text-[16px] md:text-[18px]">${lista.reduce((s,o)=>s+o.stecche,0)}</p></div><div class="bg-yellow-300 border-2 border-yellow-500 rounded-xl p-1.5 md:p-3 text-center"><p class="text-[9px] md:text-[10px] font-black">TOTALE (prezzo vendita)</p><p class="font-black text-[15px] md:text-[18px] whitespace-nowrap">${eur(valore)}</p></div>`;
+  const senza=lista.filter(o=>!String(o.p.codice_aams||'').trim());
+  $('ordineAvviso').innerHTML = senza.length?`<div class="bg-orange-100 border-2 border-orange-400 text-orange-800 rounded-xl p-2 md:p-3 text-[11px] md:text-[12px] font-black">⚠ ${senza.length} prodotti senza codice AAMS: non finiscono nel file .xls, aggiungili a mano sul portale:<br>${senza.map(o=>esc(o.p.marca)+' ('+o.stecche+' st)').join(' • ')}</div>`:'';
+  const list=$('ordineList'), top=list.scrollTop;
+  list.innerHTML = tutte.length ? tutte.map(o=>{
+    const aams=String(o.p.codice_aams||'').trim(), zero=o.stecche<=0, c=esc(o.p.code);
+    const box = zero ? 'bg-slate-100 opacity-60' : (aams?'bg-slate-50':'bg-orange-50 border-orange-400 border-2');
+    return `<div class="${box} border rounded-xl p-2.5 md:p-3 flex flex-wrap items-center justify-between gap-2">
+      <div class="min-w-0 flex-1 basis-[200px]"><p class="font-bold text-[12px] break-words ${zero?'line-through':''}">${esc(o.p.marca)} ${esc(o.p.nome)} <span class="bg-red-100 text-red-700 px-1.5 rounded text-[10px]">${fmtGG(o.p)} copertura</span>${o.mod?` <span class="bg-blue-100 text-blue-700 px-1.5 rounded text-[10px]">MODIFICATO · proposta ${o.prop}</span>`:''}</p><p class="font-mono text-[10px] text-slate-600 break-all">${aams?'AAMS:'+esc(o.p.codice_aams):'<span class="bg-orange-500 text-white px-2 py-0.5 rounded-full font-black">SENZA AAMS - SCRIVILO A MANO</span>'} - Giac:${o.p.qty} Scorta:${o.p.scorta} → Finale:${o.finale} - ${eur(o.p.prezzo)}/pacch.</p></div>
+      <div class="flex items-center gap-2 ml-auto"><button data-act="ordMinus" data-code="${c}" aria-label="Una stecca in meno" class="chip w-11 h-11 min-h-0 bg-white border-2 rounded-full font-black text-[20px]">−</button><button data-act="ordEdit" data-code="${c}" aria-label="Scrivi le stecche" class="chip w-14 h-11 min-h-0 bg-yellow-100 border-2 border-yellow-400 rounded-xl font-black text-[18px]">${o.stecche}</button><button data-act="ordPlus" data-code="${c}" aria-label="Una stecca in più" class="chip w-11 h-11 min-h-0 bg-slate-900 text-white rounded-full font-black text-[20px]">+</button><span class="font-black text-[12px] w-[76px] text-right">${eur(o.p.prezzo*o.pezzi)}</span></div>
+    </div>`;}).join('') : '<p class="text-center text-[12px] text-slate-400 py-6">Niente da ordinare. Puoi aggiungere un prodotto con la ricerca qui sopra.</p>';
+  list.scrollTop=top;
+  renderOrdineAdd();
+}
+
 /* Export ordine nel formato del catalogo Logista (.xls): stesso template, colonna Quantita compilata (in stecche) */
 function caricaScript(url){ return new Promise((ok,ko)=>{ const e=document.createElement('script'); e.src=url; e.onload=ok; e.onerror=()=>ko(new Error('script')); document.head.appendChild(e); }); }
 async function exportOrdineLogista(){
@@ -1868,6 +1915,11 @@ const ACT = {
   }),
   plus: el => rettifica(el.dataset.code, 1),
   minus: el => rettifica(el.dataset.code, -1),
+  ordMinus: el => ordStep(el.dataset.code,-1),
+  ordPlus: el => ordStep(el.dataset.code,1),
+  ordEdit: el => { const p=S.byCode.get(el.dataset.code); if(!p) return; const r=calcOrdine(true).find(o=>o.p.code===p.code); openNumpad({ label:'STECCHE - '+p.marca, initial:String(r?r.stecche:0), maxLen:3, validate:v=>parseInt(v)>=0?null:'Numero non valido', onOk:v=>setOrdStecche(p.code, parseInt(v)) }); },
+  ordAdd: el => { ordStep(el.dataset.code,1,true); $('ordineAddSearch').value=''; renderOrdineAdd(); toast('Aggiunto all\'ordine'); },
+  ordReset: () => { if(!Object.keys(ordEdits()).length){ toast('Già sulla proposta'); return; } S.ordEdit={}; saveOrdEdits(); renderOrdine(); toast('Proposta ripristinata'); },
   scPlus: el => { const p=S.byCode.get(el.dataset.code); if(p) setScorta(p.code, p.scorta+1); },
   scMinus: el => { const p=S.byCode.get(el.dataset.code); if(p) setScorta(p.code, p.scorta-1); },
   scEdit: el => { const p=S.byCode.get(el.dataset.code); if(p) openNumpad({ label:'SCORTA - '+p.marca, initial:String(p.scorta), onOk:v=>setScorta(p.code, parseInt(v)) }); },

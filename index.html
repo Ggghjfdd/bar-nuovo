@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="./icons/icon-180.png?v=v16">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-const APP_VERSION='v28';
+const APP_VERSION='v29';
 try{
   if(localStorage.getItem('bt_ver')!==APP_VERSION){
     if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister()));}
@@ -1931,6 +1931,6 @@ window.addEventListener('DOMContentLoaded', async ()=>{
 </script>
 <script src="./modalita.js?v=17"></script>
 <script src="./etichette.js?v=1"></script>
-<script src="./inventario_cam.js?v=1"></script>
+<script src="./inventario_cam.js?v=2"></script>
 </body>
 </html>

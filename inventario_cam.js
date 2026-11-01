@@ -14,10 +14,68 @@ const KEY = 'bt_inventario_v1';
 const ZXING_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
 const nomeP = p => ((p.marca||'')+' '+(p.nome||'')).trim();
 const C = { counts:new Map(), tab:'todo', q:'', stream:null, det:null, zx:null, cv:null, timer:0,
-            paused:false, working:false, last:'', lastTs:0, notFound:'', notFoundTs:0, cur:null, applying:false };
+            paused:false, working:false, last:'', lastTs:0, notFound:'', notFoundTs:0, cur:null, applying:false,
+            invId:null, srv:'?', syncT:0, syncBusy:false, dirty:false };
 
 function load(){ try{ const j=JSON.parse(localStorage.getItem(KEY)||'[]'); C.counts=new Map(Array.isArray(j)?j:[]); }catch(e){ C.counts=new Map(); } }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify([...C.counts])); }catch(e){} }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify([...C.counts])); }catch(e){} queueSync(); }
+
+/* ---------- salvataggio sul server (sopravvive a blocchi, telefono cambiato, app chiusa) ---------- */
+const conteObj = () => Object.fromEntries(C.counts);
+function srvLabel(){
+  return C.srv==='ok' ? '☁ salvato' : C.srv==='pending' ? '☁ salvo…' : C.srv==='off' ? '⚠ solo su questo telefono' : C.srv==='err' ? '⚠ non salvato online, riprovo' : '';
+}
+function queueSync(delay){
+  C.dirty=true; clearTimeout(C.syncT);
+  if(C.srv==='off') return;
+  C.srv='pending'; paintSub();
+  C.syncT=setTimeout(doSync, delay===undefined?400:delay);
+}
+async function doSync(){
+  if(C.syncBusy){ C.syncT=setTimeout(doSync,600); return; }
+  if(C.srv==='off' || !C.dirty) return;
+  C.syncBusy=true; const mine=conteObj(); C.dirty=false;
+  try{
+    if(!C.invId){
+      if(!C.counts.size){ C.srv='ok'; C.syncBusy=false; paintSub(); return; }
+      const snap=S.inv.map(p=>({c:p.code,n:nomeP(p),q:p.qty}));
+      const r=await supa.rpc('inventario_nuovo',{p_snapshot:snap}); if(r.error) throw r.error; C.invId=r.data;
+    }
+    const r=await supa.rpc('inventario_salva',{p_id:C.invId,p_conte:mine}); if(r.error) throw r.error;
+    if(r.data===false){ C.invId=null; C.dirty=true; throw new Error('conta chiusa'); }
+    C.srv='ok';
+  }catch(e){
+    const m=String((e&&e.message)||e);
+    if(/inventario_|function|schema cache|does not exist|PGRST20/i.test(m)){ C.srv='off'; }
+    else { C.srv='err'; C.dirty=true; C.syncT=setTimeout(doSync,10000); }
+  }
+  C.syncBusy=false; paintSub();
+}
+async function flush(){ clearTimeout(C.syncT); if(C.dirty && C.srv!=='off'){ await doSync(); } }
+function paintSub(){
+  const el=$('icSub'); if(!el) return;
+  const tot=S.inv.length, n=[...C.counts.keys()].filter(k=>S.byCode.has(k)).length;
+  el.textContent = n+' contati su '+tot+' · ne mancano '+Math.max(0,tot-n)+'  '+srvLabel();
+}
+/* all'apertura: riprende la conta lasciata a metà dal server e la unisce a quella locale */
+async function resumeFromServer(){
+  try{
+    const r=await supa.rpc('inventario_corrente'); if(r.error) throw r.error;
+    C.srv='ok';
+    if(r.data && r.data.id){
+      C.invId=r.data.id;
+      const srv=r.data.conte||{};
+      for(const [k,v] of Object.entries(srv)){
+        const loc=C.counts.get(k); if(!loc || (v.ts||0)>(loc.ts||0)) C.counts.set(k,v);
+      }
+      try{ localStorage.setItem(KEY, JSON.stringify([...C.counts])); }catch(e){}
+      if(Object.keys(conteObj()).length>Object.keys(srv).length){ C.dirty=true; doSync(); }
+    }
+  }catch(e){
+    const m=String((e&&e.message)||e);
+    C.srv = /inventario_|function|schema cache|does not exist|PGRST20/i.test(m) ? 'off' : 'err';
+  }
+}
 
 /* ---------- schermata ---------- */
 function ensure(){
@@ -43,9 +101,10 @@ function ensure(){
     </div>
     <div class="px-3 pt-2"><input id="icSearch" type="search" placeholder="Cerca per nome (anche senza barcode)..." class="w-full bg-slate-50 border-2 rounded-xl px-3 py-3 font-bold text-[14px]"></div>
     <div id="icList" class="flex-1 overflow-auto px-3 py-2 space-y-2"></div>
+    <div class="px-3 pt-2 text-center"><button data-ic="restart" class="text-[11px] underline text-slate-400 min-h-0">Ricomincia la conta da zero</button></div>
     <div class="p-3 border-t bg-white grid grid-cols-2 gap-2">
       <button data-ic="zero" class="border-2 border-slate-300 rounded-xl py-3 font-black text-[12px] min-h-0">NON CONTATI = 0</button>
-      <button data-ic="apply" id="icApply" class="rounded-xl py-3 font-black text-[13px] min-h-0">APPLICA INVENTARIO</button>
+      <button data-ic="apply" id="icApply" class="rounded-xl py-3 font-black text-[13px] min-h-0">HO FINITO · APPLICA</button>
     </div>
     <div id="icCard" class="hidden absolute inset-0 bg-black/60 flex items-end">
       <div class="bg-white w-full rounded-t-3xl p-5 shadow-2xl">
@@ -76,7 +135,7 @@ function status(t){ const s=$('icStatus'); if(s) s.textContent=t||''; }
 
 function render(){
   const tot=S.inv.length, n=[...C.counts.keys()].filter(k=>S.byCode.has(k)).length;
-  $('icSub').textContent = n+' contati su '+tot+' · ne mancano '+Math.max(0,tot-n);
+  paintSub();
   $('icBar').style.width = (tot? Math.round(n*100/tot):0)+'%';
   const on='bg-slate-900 text-white', off='bg-slate-100 text-slate-600';
   $('icTabTodo').className='flex-1 rounded-xl py-3 font-black text-[13px] min-h-0 '+(C.tab==='todo'?on:off);
@@ -199,11 +258,13 @@ function onCode(raw){
 /* ---------- applica ---------- */
 async function apply(){
   if(C.applying || !C.counts.size) return;
+  const finito=await askConfirm('Hai finito di contare TUTTE le sigarette?\n\nSÌ: controllo le differenze e aggiorno il magazzino.\nNO: salvo quello che hai contato e potrai continuare quando vuoi.',{title:'HAI FINITO L\'INVENTARIO?',ok:'SÌ, HO FINITO',cancel:'NO, CONTINUO DOPO'});
+  if(!finito){ await uscitaSalvata(); return; }
   const todo=[...C.counts].map(([code,c])=>({code,c,p:S.byCode.get(code),d:c.counted-c.sys})).filter(x=>x.p && x.d!==0);
   const uguali=C.counts.size-todo.length;
   const mancano=Math.max(0, S.inv.length-[...C.counts.keys()].filter(k=>S.byCode.has(k)).length);
   if(!todo.length){
-    if(await askConfirm('Nessuna differenza: le quantità contate coincidono con il sistema.\nChiudere e cancellare la conta?',{title:'TUTTO ALLINEATO',ok:'CHIUDI'})){ C.counts=new Map(); save(); close(); }
+    if(await askConfirm('Nessuna differenza: le quantità contate coincidono con il sistema.\nChiudere e cancellare la conta?',{title:'TUTTO ALLINEATO',ok:'CHIUDI'})){ try{ if(C.invId) await supa.rpc('inventario_chiudi',{p_id:C.invId,p_stato:'applicato',p_conte:conteObj()}); }catch(e){} C.invId=null; C.counts=new Map(); try{ localStorage.removeItem(KEY); }catch(e){} C.dirty=false; close(); }
     return;
   }
   const tot=todo.reduce((s,x)=>s+x.d,0);
@@ -221,7 +282,10 @@ async function apply(){
   save(); C.applying=false;
   await loadInventory(true);
   if(errori.length){ render(); showError('Corretti '+fatti+' prodotti.\nNon riusciti:\n'+errori.slice(0,5).join('\n')+'\n\nI non riusciti restano nella conta: riprova.','INVENTARIO PARZIALE'); }
-  else { close(); showSuccess('Inventario applicato: '+fatti+' prodotti corretti.','FATTO'); }
+  else {
+    try{ if(C.invId){ await supa.rpc('inventario_chiudi',{p_id:C.invId,p_stato:'applicato',p_conte:conteObj()}); } }catch(e){}
+    C.invId=null; C.dirty=false; close(); showSuccess('Inventario applicato: '+fatti+' prodotti corretti.\nLa fotografia di prima resta salvata nello storico.','FATTO');
+  }
 }
 async function zero(){
   const resto=S.inv.filter(p=>!C.counts.has(p.code));
@@ -231,8 +295,19 @@ async function zero(){
   save(); render();
 }
 
+async function uscitaSalvata(){
+  await flush(); const n=C.counts.size;
+  close();
+  if(n) toast('Conta salvata', n+' prodotti: la riprendi quando vuoi', 2600);
+}
+async function restart(){
+  if(!(await askConfirm('Cancello tutta la conta fatta finora e ricomincio da zero?',{title:'RICOMINCIA',ok:'CANCELLA',danger:true}))) return;
+  try{ if(C.invId) await supa.rpc('inventario_chiudi',{p_id:C.invId,p_stato:'annullato',p_conte:conteObj()}); }catch(e){}
+  C.invId=null; C.counts=new Map(); try{ localStorage.removeItem(KEY); }catch(e){} C.dirty=false; render();
+}
 const ACT = {
-  close: ()=>close(),
+  restart: ()=>restart(),
+  close: ()=>uscitaSalvata(),
   cam: ()=>camStart(),
   tabTodo: ()=>{ C.tab='todo'; render(); },
   tabDone: ()=>{ C.tab='done'; render(); },
@@ -245,15 +320,20 @@ const ACT = {
   zero: ()=>zero()
 };
 
-function start(){
+async function start(){
   if(!S.loaded){ showWarning('Catalogo non ancora caricato.','ATTENDI'); return; }
   ensure(); load(); C.tab='todo'; C.q=''; $('icSearch').value=''; C.paused=false; C.last=''; closeCardQuiet();
+  C.invId=null; C.srv='pending'; C.dirty=false;
   $('icModal').classList.remove('hidden'); status('Premi il pulsante verde per accendere la fotocamera');
   render();
+  await resumeFromServer();
+  render();
+  if(C.counts.size) status('Conta ripresa: '+C.counts.size+' prodotti già contati. Premi il pulsante verde per continuare');
 }
 function closeCardQuiet(){ C.cur=null; const c=$('icCard'); if(c) c.classList.add('hidden'); }
 function close(){ camStop(); closeCardQuiet(); const m=$('icModal'); if(m) m.classList.add('hidden'); if(typeof refocus==='function') refocus(); }
 
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden && C.dirty) flush(); });
 window.invCamStart = start;
 window.__icTest = { C, onCode, render, saveCard, showCard };
 })();

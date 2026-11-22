@@ -261,6 +261,7 @@ input,select,textarea{min-height:58px;font-size:18px}
 <div id="menuDrawer" class="modal hidden fixed inset-0 z-[240] bg-black/60" onclick="if(event.target.id==='menuDrawer') closeMenu()">
   <nav class="bg-white h-full w-[82%] max-w-[320px] p-4 flex flex-col gap-3 shadow-2xl" style="padding-top:calc(16px + env(safe-area-inset-top))">
     <div class="flex justify-between items-center mb-1"><span class="font-black text-[18px]">MENU</span><button onclick="closeMenu()" aria-label="Chiudi" class="w-12 h-12 min-h-0 bg-slate-100 rounded-full font-black text-xl">×</button></div>
+    <button onclick="closeMenu();ordRapidoOpen()" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-yellow-400 border-2 border-yellow-500">📋 ORDINE RAPIDO</button>
     <button onclick="menuGo('cassa')" id="b-cassa" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-900 text-white">CASSA</button>
     <button onclick="menuGo('carico')" id="b-carico" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">CARICO</button>
     <button onclick="menuGo('report')" id="b-report" class="w-full text-left px-5 py-4 rounded-2xl font-black text-[16px] bg-slate-100">RESOCONTI + TURNI</button>
@@ -1494,9 +1495,9 @@ function renderOrdine(){
 
 /* Export ordine nel formato del catalogo Logista (.xls): stesso template, colonna Quantita compilata (in stecche) */
 function caricaScript(url){ return new Promise((ok,ko)=>{ const e=document.createElement('script'); e.src=url; e.onload=ok; e.onerror=()=>ko(new Error('script')); document.head.appendChild(e); }); }
-async function exportOrdineLogista(){
-  const lista=calcOrdine();
-  if(!lista.length){ showWarning('Non c\'è niente da ordinare.','ORDINE VUOTO'); return; }
+async function exportOrdineLogista(listaIn){
+  const lista=listaIn||calcOrdine();
+  if(!lista.length){ showWarning('Non c\'è niente da ordinare.','ORDINE VUOTO'); return false; }
   try{
     if(!window.XLSX) await caricaScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
     const cat=await (await fetch('./catalogo_logista.json')).json();
@@ -1520,7 +1521,8 @@ async function exportOrdineLogista(){
     XLSX.writeFile(wb,'Ordine_Logista_'+localDay()+'_'+hhmm+'.xls',{bookType:'biff8'});
     if(mancanti.length) showWarning('Questi prodotti NON sono nel file (AAMS mancante o non nel catalogo), aggiungili a mano sul portale:\n'+mancanti.map(o=>'• '+o.p.marca+' ('+o.stecche+' st)').join('\n'),'ATTENZIONE');
     else toast('File ordine creato ('+usati.size+' prodotti)');
-  }catch(e){ showError('Non riesco a creare il file .xls (serve internet la prima volta). Usa CSV ORDINE.'); }
+    return true;
+  }catch(e){ showError('Non riesco a creare il file .xls (serve internet la prima volta). Usa CSV ORDINE.'); return false; }
 }
 function exportOrdineCSV(){
   const rows=[['marca','nome','barcode','codice_aams','codice_logista','giacenza','scorta','mancanza','stecche','pezzi_ordinati','giacenza_finale','giorni_copertura','ultimo_carico','media_giornaliera','prezzo','valore']];
@@ -2013,5 +2015,6 @@ window.addEventListener('DOMContentLoaded', async ()=>{
 <script src="./modalita.js?v=18"></script>
 <script src="./etichette.js?v=1"></script>
 <script src="./inventario_cam.js?v=3"></script>
+<script src="./ordine_rapido.js?v=1"></script>
 </body>
 </html>

@@ -21,7 +21,7 @@ const noSql = m => /ordine_giorno|function|schema cache|does not exist|PGRST20/i
 function loadLocal(){
   O.q={}; O.ts=0; O.exp=0;
   try{ const j=JSON.parse(localStorage.getItem(key())||'null'); if(j && j.q){ O.q=j.q; O.ts=j.ts||0; O.exp=j.exp||0; } }catch(e){}
-  try{ for(let i=localStorage.length-1;i>=0;i--){ const k=localStorage.key(i); if(k && k.indexOf('bt_ordine_')===0 && k!==key()) localStorage.removeItem(k); } }catch(e){}
+  try{ const lim=localDay(new Date(Date.now()-30*86400000)); for(let i=localStorage.length-1;i>=0;i--){ const k=localStorage.key(i); if(k && k.indexOf('bt_ordine_')===0 && k.slice(10)<lim) localStorage.removeItem(k); } }catch(e){}
 }
 function saveLocal(){ try{ localStorage.setItem(key(), JSON.stringify({q:O.q,ts:O.ts,exp:O.exp})); }catch(e){} }
 function srvLabel(){ return O.srv==='ok'?'☁ salvato':O.srv==='pending'?'☁ salvo…':O.srv==='off'?'⚠ salvato solo su questo telefono':O.srv==='err'?'⚠ non salvato online, riprovo':''; }
@@ -55,6 +55,21 @@ async function fromServer(){
   }catch(e){ const m=String((e&&e.message)||e); O.srv = noSql(m) ? 'off' : 'err'; }
 }
 
+async function pushOldDays(){
+  if(O.srv!=='ok') return;
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i); if(!k || k.indexOf('bt_ordine_')!==0) continue;
+      const g=k.slice(10); if(g===O.giorno) continue;
+      const j=JSON.parse(localStorage.getItem(k)||'null'); if(!j || !j.q || !Object.keys(j.q).length || j.pushed) continue;
+      const r=await supa.rpc('ordine_giorno_leggi',{p_giorno:g}); if(r.error) return;
+      const st=r.data && r.data.updated_at ? Date.parse(r.data.updated_at) : 0;
+      if(st < (j.ts||0)){ const w=await supa.rpc('ordine_giorno_salva',{p_giorno:g,p_righe:j.q}); if(w.error) return; }
+      j.pushed=1; localStorage.setItem(k, JSON.stringify(j));
+    }
+  }catch(e){}
+}
+
 /* ---------- dati ---------- */
 const qty = c => Math.max(0, parseInt(O.q[c])||0);
 function items(){ return S.inv.filter(p=>qty(p.code)>0).map(p=>({ p, stecche:qty(p.code), pezzi:qty(p.code)*10 })); }
@@ -78,7 +93,7 @@ function ensure(){
   document.body.insertAdjacentHTML('beforeend', `
   <div id="orModal" class="modal hidden fixed inset-0 z-[250] flex flex-col text-white" style="background:#0A1A3A;padding-top:env(safe-area-inset-top)">
     <div class="px-4 py-3 flex items-center justify-between gap-2" style="background:#06122B">
-      <div class="min-w-0"><h3 class="font-black text-[18px] leading-tight">ORDINE DI ANDREA DI OGGI</h3><p id="orSub" class="text-[11px] text-slate-300"></p></div>
+      <div class="min-w-0"><h3 id="orTitle" class="font-black text-[18px] leading-tight">ORDINE DI ANDREA DI OGGI</h3><div class="flex items-center gap-1 mt-1"><button data-or="prev" aria-label="Giorno prima" class="w-8 h-8 min-h-0 bg-white/15 rounded-full font-black text-[16px]">‹</button><p id="orSub" class="text-[11px] text-slate-300"></p><button data-or="next" id="orNext" aria-label="Giorno dopo" class="w-8 h-8 min-h-0 bg-white/15 rounded-full font-black text-[16px]">›</button></div></div>
       <button data-or="cassa" aria-label="Chiudi e torna all'app" class="shrink-0 w-12 h-12 min-h-0 bg-white/15 rounded-full font-black text-[22px]">✕</button>
     </div>
     <div class="px-3 py-2 bg-yellow-300 flex items-center justify-between gap-3">
@@ -104,6 +119,8 @@ function ensure(){
     else if(a==='toggle'){ O.view = O.view==='tutti'?'oggi':'tutti'; renderList(); paintTot(); }
     else if(a==='finito') finito();
     else if(a==='cassa') close();
+    else if(a==='prev') goDay(-1);
+    else if(a==='next') goDay(1);
   });
   m.addEventListener('input', e=>{
     const t=e.target;
@@ -117,7 +134,11 @@ function paintTot(){
   const t=totali();
   $('orTot').textContent = eur(t.eu);
   $('orStecche').innerHTML = t.st+' stecche<br><span class="text-[12px] font-bold">'+t.n+' prodotti</span>';
-  $('orSub').textContent = new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})+' · '+srvLabel();
+  const oggi = O.giorno===localDay(), dd=new Date(O.giorno+'T12:00:00');
+  const dtxt = dd.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  $('orTitle').textContent = oggi ? 'ORDINE DI ANDREA DI OGGI' : 'ORDINE DI ANDREA DEL '+dd.toLocaleDateString('it-IT',{day:'numeric',month:'long'}).toUpperCase();
+  $('orSub').textContent = dtxt+' · '+srvLabel();
+  $('orNext').style.visibility = oggi ? 'hidden' : 'visible';
   $('orToggle').textContent = O.view==='tutti' ? 'ORDINI DI OGGI ('+t.n+')' : 'TUTTI I PRODOTTI';
   $('orNota').textContent = O.exp ? 'Ultimo file creato alle '+hhmm(O.exp)+'. Ogni volta contiene TUTTO l\'ordine di oggi.' : 'Prezzo al pubblico. Le quantità si salvano da sole.';
   $('orFinito').className='w-full rounded-2xl py-4 font-black text-[16px] min-h-0 '+(t.n?'bg-emerald-500 text-white':'bg-slate-600 text-slate-300');
@@ -159,6 +180,15 @@ async function finito(){
   }
 }
 
+async function goDay(d){
+  const dt=new Date(O.giorno+'T12:00:00'); dt.setDate(dt.getDate()+d); const g=localDay(dt);
+  if(g>localDay()) return;
+  clearTimeout(O.syncT); if(O.dirty && O.srv!=='off') await doSync();
+  O.giorno=g; loadLocal(); O.view='tutti'; O.filter=''; $('orSearch').value='';
+  renderList(); O.srv='pending'; paintTot();
+  await fromServer(); renderList(); paintTot();
+}
+
 /* ---------- apri / chiudi ---------- */
 async function open(){
   ensure(); O.giorno=localDay(); loadLocal(); O.view='tutti'; O.filter=''; $('orSearch').value='';
@@ -167,6 +197,7 @@ async function open(){
   if(!S.inv || !S.inv.length){ O.poll=setInterval(()=>{ n++; if(S.inv && S.inv.length){ clearInterval(O.poll); renderList(); paintTot(); } else if(n>100) clearInterval(O.poll); },500); }
   O.srv='pending'; paintTot();
   await fromServer(); renderList(); paintTot();
+  await pushOldDays();
 }
 function close(){
   clearTimeout(O.syncT); if(O.dirty && O.srv!=='off') doSync();

@@ -66,8 +66,9 @@ function setQ(code, v, fromInput){
   const row=document.querySelector('#orList [data-row="'+CSS.escape(code)+'"]');
   if(row){
     const inp=row.querySelector('input'); if(inp && !fromInput) inp.value = v>0?String(v):'';
-    row.classList.toggle('bg-emerald-50',v>0); row.classList.toggle('border-emerald-400',v>0);
-    row.classList.toggle('bg-slate-50',v===0);
+    const aams=row.dataset.aams==='1';
+    row.className = rowCls(v,aams)+' border rounded-xl p-2.5 flex items-center gap-2';
+    row.style.background = v>0 ? '' : '#13294F';
   }
 }
 
@@ -75,23 +76,23 @@ function setQ(code, v, fromInput){
 function ensure(){
   if($('orModal')) return;
   document.body.insertAdjacentHTML('beforeend', `
-  <div id="orModal" class="modal hidden fixed inset-0 bg-white z-[250] flex flex-col" style="padding-top:env(safe-area-inset-top)">
-    <div class="px-3 py-3 bg-slate-900 text-white flex items-center justify-between gap-2">
-      <div class="min-w-0"><h3 class="font-black text-[17px]">ORDINE DI OGGI</h3><p id="orSub" class="text-[11px] text-slate-300"></p></div>
-      <button data-or="cassa" class="shrink-0 px-4 h-11 min-h-0 bg-white/15 rounded-xl font-black text-[13px]">CASSA ›</button>
+  <div id="orModal" class="modal hidden fixed inset-0 z-[250] flex flex-col text-white" style="background:#0A1A3A;padding-top:env(safe-area-inset-top)">
+    <div class="px-4 py-3 flex items-center justify-between gap-2" style="background:#06122B">
+      <div class="min-w-0"><h3 class="font-black text-[18px] leading-tight">ORDINE DI ANDREA DI OGGI</h3><p id="orSub" class="text-[11px] text-slate-300"></p></div>
+      <button data-or="cassa" aria-label="Chiudi e torna all'app" class="shrink-0 w-12 h-12 min-h-0 bg-white/15 rounded-full font-black text-[22px]">✕</button>
     </div>
     <div class="px-3 py-2 bg-yellow-300 flex items-center justify-between gap-3">
       <div><p class="text-[11px] font-black text-slate-700">ORDINE FINORA</p><p id="orTot" class="font-black text-[24px] leading-tight text-slate-900"></p></div>
       <p id="orStecche" class="font-black text-[15px] text-slate-900 text-right"></p>
     </div>
     <div class="px-3 pt-2 flex gap-2">
-      <input id="orSearch" type="search" placeholder="Cerca per nome..." class="flex-1 min-w-0 bg-slate-50 border-2 rounded-xl px-3 py-3 font-bold text-[14px]">
-      <button id="orToggle" data-or="toggle" class="shrink-0 px-3 rounded-xl font-black text-[12px] min-h-0 bg-slate-900 text-white"></button>
+      <input id="orSearch" type="search" placeholder="Cerca per nome..." class="flex-1 min-w-0 bg-white text-slate-900 border-2 border-white rounded-xl px-3 py-3 font-bold text-[14px]">
+      <button id="orToggle" data-or="toggle" class="shrink-0 px-3 rounded-xl font-black text-[12px] min-h-0 bg-white text-slate-900"></button>
     </div>
     <div id="orList" class="flex-1 overflow-auto px-3 py-2 space-y-2"></div>
-    <div class="p-3 border-t bg-white">
+    <div class="p-3 border-t" style="border-color:#25427A;background:#06122B">
       <button data-or="finito" id="orFinito" class="w-full rounded-2xl py-4 font-black text-[16px] min-h-0 bg-emerald-500 text-white">FINITO · CREA IL FILE EXCEL</button>
-      <p id="orNota" class="text-center text-[11px] font-bold text-slate-400 mt-1"></p>
+      <p id="orNota" class="text-center text-[11px] font-bold text-slate-300 mt-1"></p>
     </div>
   </div>`);
   const m=$('orModal');
@@ -119,28 +120,28 @@ function paintTot(){
   $('orSub').textContent = new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})+' · '+srvLabel();
   $('orToggle').textContent = O.view==='tutti' ? 'ORDINI DI OGGI ('+t.n+')' : 'TUTTI I PRODOTTI';
   $('orNota').textContent = O.exp ? 'Ultimo file creato alle '+hhmm(O.exp)+'. Ogni volta contiene TUTTO l\'ordine di oggi.' : 'Prezzo al pubblico. Le quantità si salvano da sole.';
-  $('orFinito').className='w-full rounded-2xl py-4 font-black text-[16px] min-h-0 '+(t.n?'bg-emerald-500 text-white':'bg-slate-200 text-slate-400');
+  $('orFinito').className='w-full rounded-2xl py-4 font-black text-[16px] min-h-0 '+(t.n?'bg-emerald-500 text-white':'bg-slate-600 text-slate-300');
 }
+const rowCls=(n,aams)=> n>0 ? 'bg-emerald-900 border-emerald-400' : (aams ? 'border-[#25427A]' : 'border-orange-400 border-2');
 function rowHtml(p){
   const c=esc(p.code), n=qty(p.code), aams=String(p.codice_aams||'').trim();
-  const cls = n>0 ? 'bg-emerald-50 border-emerald-400' : (aams?'bg-slate-50':'bg-orange-50 border-orange-400 border-2');
-  return `<div data-row="${c}" class="${cls} border rounded-xl p-2.5 flex items-center gap-2">
-    <div class="min-w-0 flex-1"><p class="font-bold text-[13px] break-words">${esc(nomeP(p))}</p>${aams?'':'<p class="text-[10px] font-black text-orange-600">senza AAMS: non va nel file</p>'}</div>
-    <button data-or="minus" data-c="${c}" aria-label="Una stecca in meno" class="w-12 h-12 min-h-0 bg-white border-2 rounded-full font-black text-[22px]">−</button>
-    <input data-orq="${c}" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" placeholder="0" value="${n>0?n:''}" aria-label="Stecche" class="w-14 h-12 text-center border-2 border-slate-300 rounded-xl font-black text-[20px] bg-white">
-    <button data-or="plus" data-c="${c}" aria-label="Una stecca in più" class="w-12 h-12 min-h-0 bg-slate-900 text-white rounded-full font-black text-[22px]">+</button>
+  return `<div data-row="${c}" data-aams="${aams?1:0}" style="${n>0?'':'background:#13294F'}" class="${rowCls(n,aams)} border rounded-xl p-2.5 flex items-center gap-2">
+    <div class="min-w-0 flex-1"><p class="font-bold text-[13px] break-words text-white">${esc(nomeP(p))}</p>${aams?'':'<p class="text-[10px] font-black text-orange-300">senza AAMS: non va nel file</p>'}</div>
+    <button data-or="minus" data-c="${c}" aria-label="Una stecca in meno" class="w-12 h-12 min-h-0 bg-white text-slate-900 rounded-full font-black text-[22px]">−</button>
+    <input data-orq="${c}" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" placeholder="0" value="${n>0?n:''}" aria-label="Stecche" class="w-14 h-12 text-center border-2 border-slate-300 rounded-xl font-black text-[20px] bg-white text-slate-900">
+    <button data-or="plus" data-c="${c}" aria-label="Una stecca in più" class="w-12 h-12 min-h-0 bg-yellow-400 text-slate-900 rounded-full font-black text-[22px]">+</button>
   </div>`;
 }
 function renderList(){
   const box=$('orList'); if(!box) return;
-  if(!S.inv || !S.inv.length){ box.innerHTML='<p class="text-center text-[13px] font-bold text-slate-500 py-10">Sto caricando i prodotti…<br>Se non compaiono, controlla la connessione.</p>'; return; }
+  if(!S.inv || !S.inv.length){ box.innerHTML='<p class="text-center text-[13px] font-bold text-slate-300 py-10">Sto caricando i prodotti…<br>Se non compaiono, controlla la connessione.</p>'; return; }
   const q=(O.filter||'').toLowerCase().trim();
   let rows=S.inv.slice();
   if(O.view==='oggi') rows=rows.filter(p=>qty(p.code)>0);
   if(q) rows=rows.filter(p=>(nomeP(p)+' '+(p.codice_aams||'')).toLowerCase().includes(q));
   rows.sort((a,b)=>nomeP(a).localeCompare(nomeP(b)));
   box.innerHTML = rows.length ? rows.map(rowHtml).join('') :
-    `<p class="text-center text-[13px] font-bold text-slate-400 py-10">${O.view==='oggi'?'Oggi non hai ancora scelto niente.':'Nessun prodotto trovato'}</p>`;
+    `<p class="text-center text-[13px] font-bold text-slate-300 py-10">${O.view==='oggi'?'Oggi non hai ancora scelto niente.':'Nessun prodotto trovato'}</p>`;
 }
 
 /* ---------- FINITO ---------- */
